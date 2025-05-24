@@ -1,0 +1,2 @@
+python-gvm==24.3.0
+shodan==1.31.0
