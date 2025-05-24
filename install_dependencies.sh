@@ -104,30 +104,30 @@ install_prerequisites() {
     ;;
   arch)
     echo "[*] AUR helper (paru/yay) might be needed for some tools not in official repos."
-    install_if_missing curl git "$GO_PACKAGE"
+    install_if_missing curl git "$GO_PACKAGE" base-devel # ADDED base-devel for AUR build dependencies
     ;;
   esac
 }
 
 # Install Distro-based Tools
-# Installs tools typically found in distribution repositories, like sqlmap, wpscan, zaproxy, and openvas-scanner.
+# Installs tools typically found in distribution repositories, like sqlmap, wpscan, and zaproxy.
+# OpenVAS/GVM is handled separately for Arch due to its complexity.
 install_distro_tools() {
   echo -e "\n=== Installing Tools from Distro Repositories ==="
   # These are tools that are typically well-maintained in distro repositories.
-  # openvas-scanner is added here and handled specifically for Arch Linux.
-  local common_distro_tools=(sqlmap wpscan zaproxy openvas-scanner)
+  # openvas-scanner is handled differently for Arch Linux due to complexity.
+  local common_distro_tools=(sqlmap wpscan zaproxy openvas-scanner) # openvas-scanner will only be attempted on Debian/RHEL
 
   case "$DISTRO_FAMILY" in
   debian | rhel)
     install_if_missing "${common_distro_tools[@]}"
     ;;
   arch)
-    # Separate tools that are typically in official Arch repos from those in AUR.
-    local arch_official_tools=(sqlmap wpscan zaproxy)
-    local arch_aur_tools=(openvas-scanner) # Explicitly mark this as an AUR candidate
+    # Tools generally available in official Arch repos or easier AUR packages.
+    local arch_general_tools=(sqlmap wpscan zaproxy)
 
-    # Install official repo tools first
-    for pkg in "${arch_official_tools[@]}"; do
+    # Install general tools first
+    for pkg in "${arch_general_tools[@]}"; do
       if ! pacman -Q "$pkg" &>/dev/null; then
         echo "[*] Attempting to install ${pkg} via pacman..."
         if $INSTALL_CMD "$pkg"; then
@@ -139,51 +139,9 @@ install_distro_tools() {
         echo "[✔] ${pkg} already installed."
       fi
     done
-
-    # Handle AUR specific tools like openvas-scanner
-    for pkg in "${arch_aur_tools[@]}"; do
-      local installed_via_aur="false"
-      # Check for various common package names for OpenVAS/GVM in AUR or official repos
-      if pacman -Q "$pkg" &>/dev/null ||
-        (command -v paru &>/dev/null && paru -Q "$pkg" &>/dev/null) ||
-        (command -v yay &>/dev/null && yay -Q "$pkg" &>/dev/null) ||
-        pacman -Q "greenbone-scanner" &>/dev/null ||
-        (command -v paru &>/dev/null && paru -Q "greenbone-scanner" &>/dev/null) ||
-        (command -v yay &>/dev/null && yay -Q "greenbone-scanner" &>/dev/null) ||
-        pacman -Q "openvas" &>/dev/null ||
-        (command -v paru &>/dev/null && paru -Q "openvas" &>/dev/null) ||
-        (command -v yay &>/dev/null && yay -Q "openvas" &>/dev/null); then
-        echo "[✔] ${pkg} already installed (detected via pacman/AUR helper)."
-        installed_via_aur="true"
-      fi
-
-      if [[ "$installed_via_aur" == "false" ]]; then
-        echo "[*] Attempting to install ${pkg} (AUR) via paru/yay..."
-        if command -v paru &>/dev/null; then
-          if paru -S --noconfirm "$pkg"; then # Try the exact name first (e.g., openvas-scanner)
-            echo "[✔] ${pkg} installed via paru."
-          elif paru -S --noconfirm "greenbone-scanner"; then # Try common alternate name
-            echo "[✔] greenbone-scanner installed via paru."
-          elif paru -S --noconfirm "openvas"; then # Try another common alternate name
-            echo "[✔] openvas installed via paru."
-          else
-            echo "[!] Failed to install ${pkg} via paru. Please install it manually if needed."
-          fi
-        elif command -v yay &>/dev/null; then
-          if yay -S --noconfirm "$pkg"; then # Try the exact name first
-            echo "[✔] ${pkg} installed via yay."
-          elif yay -S --noconfirm "greenbone-scanner"; then # Try common alternate name
-            echo "[✔] greenbone-scanner installed via yay."
-          elif yay -S --noconfirm "openvas"; then # Try another common alternate name
-            echo "[✔] openvas installed via yay."
-          else
-            echo "[!] Failed to install ${pkg} via yay. Please install it manually if needed."
-          fi
-        else
-          echo "[!] paru or yay not found. Please install ${pkg} manually if needed."
-        fi
-      fi
-    done
+    echo -e "\n[!] For Arch Linux, OpenVAS/Greenbone Vulnerability Management (GVM) is a complex suite."
+    echo "    It often requires manual installation and configuration, potentially from AUR or source, involving database setup and service management."
+    echo "    Please refer to the Arch Wiki (https://wiki.archlinux.org/title/Greenbone_Vulnerability_Management) or official Greenbone documentation for installation instructions."
     ;;
   esac
 }
@@ -279,17 +237,26 @@ setup_persistent_gobin() {
     ;;
   esac
 
+  # First, check if gobin_dir is ALREADY in the current shell's PATH.
+  # This is the most reliable check for an active PATH.
+  local gobin_dir_escaped_for_path_grep=$(echo "$gobin_dir" | sed 's/\//\\\//g') # Escape for path regex
+  if echo "$PATH" | command grep -qE "(^|:)${gobin_dir_escaped_for_path_grep}(:|$)"; then
+    echo "[✔] Go binary path (${gobin_dir}) is already in your current shell's PATH."
+    return # Exit the function, no need to modify config files.
+  fi
+
   # Create config file if it doesn't exist.
   if [[ ! -f "$config" ]]; then
     echo "[*] Shell config ${config} not found, creating it."
     touch "$config"
   fi
 
-  # Check if $gobin_dir is already anywhere in a PATH definition in the config file.
-  # This regex attempts to find common PATH assignment patterns and the Go binary directory.
-  # The 'sed' command escapes forward slashes in gobin_dir for the regex.
-  if grep -qE "PATH=.*(^|:|\s)$(echo "$gobin_dir" | sed 's/\//\\\//g')( |:|$)|\bset -gx PATH\b.*\b$(echo "$gobin_dir" | sed 's/\//\\\//g')\b" "$config"; then
-    echo "[✔] Go binary path (${gobin_dir}) already set in ${config}."
+  # If not in current PATH, check the config file more generally for its presence.
+  # Use 'command grep' to bypass any aliases like 'rg'.
+  # Simplified regex for file check: just look for the literal string within the file on any line containing 'PATH=' or 'export PATH='
+  # No need to over-escape '/' for general string presence in grep -E.
+  if command grep -qE "PATH=.*${gobin_dir}|\bset -gx PATH\b.*${gobin_dir}" "$config"; then
+    echo "[✔] Go binary path (${gobin_dir}) appears to be configured in ${config}."
   else
     echo "[*] Adding Go binary path to ${config}."
     echo -e "\n# Go tools path\n${gobin_line}" >>"$config"
