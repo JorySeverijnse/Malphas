@@ -1,52 +1,48 @@
 # Malphas
 
-Malphas is a modular, automated reconnaissance and vulnerability scanning tool designed for security researchers and penetration testers. Built with Python 3.8+ (tested up to Python 3.13), Malphas streamlines security assessments through DNS enumeration, subdomain discovery, live host probing, Shodan integration, vulnerability scanning, and more. Its asynchronous execution and flexible configuration ensure efficiency and adaptability for professional use.
+Malphas is a modular, automated reconnaissance and vulnerability scanning tool for security researchers and penetration testers. Built with Python 3.8+ (tested up to Python 3.13), it performs DNS enumeration, subdomain discovery, live host probing, Shodan integration, vulnerability scanning, and more. Its asynchronous execution and flexible configuration make it efficient for professional security assessments.
 
 ## Key Features
 
-- **DNS Enumeration**: Performs zone transfers and SRV record analysis with `dnsrecon`.
-- **Subdomain Discovery**: Uses `subfinder` and optional `amass` for recursive subdomain enumeration.
-- **Live Host Probing**: Verifies hosts concurrently with `httpx`.
-- **Shodan Integration**: Queries host exposure details via Shodan (requires API key).
-- **Port Scanning**: Discovers open ports with `naabu` and configurable rate limiting.
-- **Vulnerability Scanning**: Scans for network and web vulnerabilities using `nuclei` (low to critical severity).
-- **URL Discovery**: Crawls historical and active URLs with `waybackurls` and `gospider`.
-- **CMS Detection**: Identifies WordPress, Joomla, and Drupal; includes `wpscan` for WordPress scans.
-- **Login Portal Detection**: Detects login and admin pages for targeted testing.
+- **DNS Enumeration**: Zone transfers and SRV record analysis with `dnsrecon`.
+- **Subdomain Discovery**: Recursive enumeration using `subfinder` and optional `amass`.
+- **Live Host Probing**: Concurrent host verification with `httpx`.
+- **Shodan Integration**: Host exposure details via Shodan (requires API key).
+- **Port Scanning**: Open port discovery with `naabu`.
+- **Vulnerability Scanning**: Network and web scans with `nuclei` for low to critical issues.
+- **URL Discovery**: Historical and active URL crawling with `waybackurls` and `gospider`.
+- **CMS Detection**: Identifies WordPress, Joomla, and Drupal; includes `wpscan` for WordPress.
+- **Login Portal Detection**: Detects login and admin pages.
 - **SQL Injection Testing**: Tests login portals and query parameters with `sqlmap`.
-- **OWASP ZAP Spidering**: Conducts automated spidering via API-driven OWASP ZAP.
-- **OpenVAS Scanning**: Performs comprehensive scans using local GVM via GMP API.
-- **XSS Analysis**: Detects XSS and DOM-based XSS with `dalfox`, including WAF bypass.
-- **Open Redirect Testing**: Checks unvalidated redirects using `curl` and Python.
-- **SQL Injection Detection**: Identifies SQLi vulnerabilities in query parameters with `nuclei`.
-- **JavaScript Analysis**: Discovers JS endpoints with `katana` and optional `ffuf` fuzzing.
-- **Secrets Scanning**: Scans GitHub repositories for exposed secrets using `trufflehog`.
-- **Flexible Configuration**: Supports skip flags for scan phases and verbose logging.
+- **OWASP ZAP Spidering**: Automated spidering via API-driven OWASP ZAP.
+- **OpenVAS Scanning**: Comprehensive scans using local GVM via GMP API.
+- **XSS Analysis**: XSS and DOM-based XSS detection with `dalfox`.
+- **Open Redirect Testing**: Checks unvalidated redirects with `curl` and Python.
+- **JavaScript Analysis**: JS endpoint discovery with `katana` and optional `ffuf` fuzzing.
+- **Secrets Scanning**: GitHub repository secret scanning with `trufflehog`.
 
 ## Prerequisites
 
-- **Python Version**: Python 3.8 or higher (tested up to Python 3.13).
-- **Required Tools**:
-  - `subfinder`, `httpx`, `naabu`, `nuclei`, `waybackurls`, `dalfox`, `katana`, `trufflehog`, `ffuf`, `curl`, `zaproxy`, `sqlmap`, `dnsrecon`, `amass`, `gospider`, `wpscan`, `shodan`.
-- **Python Dependencies** (listed in `requirements.txt`):
+- **Python**: 3.8+ (tested up to 3.13).
+- **Required Tools**: `subfinder`, `httpx`, `naabu`, `nuclei`, `waybackurls`, `dalfox`, `katana`, `trufflehog`, `ffuf`, `curl`, `zaproxy`, `sqlmap`, `dnsrecon`, `amass`, `gospider`, `wpscan`, `shodan`.
+- **Python Dependencies** (in `requirements.txt`):
   - `python-gvm==24.3.0`
   - `shodan==1.31.0`
-- **OWASP ZAP**: Installed and accessible (default: `/usr/share/zaproxy/zap.sh` on Linux).
+- **OWASP ZAP**: Installed and accessible.
 - **OpenVAS/GVM**: Local installation with SSH and GMP enabled.
 - **Sudo Access**: Passwordless `sudo` for `gvm-start` and `gvm-stop` (if using GVM).
 - **API Keys**:
-  - **Shodan API Key**: Required for Shodan scans ([https://account.shodan.io](https://account.shodan.io)).
-  - **WPScan API Token**: Optional for enhanced WordPress scanning ([https://wpscan.com/api](https://wpscan.com/api)).
-- **Go**: Required for installing Go-based tools (e.g., `waybackurls`, `dalfox`).
-- **Git**: Required for cloning the repository.
+  - Shodan (required): [https://account.shodan.io](https://account.shodan.io).
+  - WPScan (optional): [https://wpscan.com/api](https://wpscan.com/api).
+- **Go**: For installing Go-based tools.
+- **Git**: For cloning the repository.
 
 ## Installation
 
-Malphas is distributed via a Git repository for ease of setup and updates. The following instructions are platform-agnostic, with specific commands for common operating systems (Debian/Ubuntu, Red Hat/Fedora, macOS, etc.).
+Malphas is distributed via a Git repository for easy setup and updates. Instructions are provided for common platforms.
 
 ### 1. Clone the Repository
 
-Clone the Malphas repository to your local machine:
 ```bash
 git clone https://github.com/malphas/malphas.git
 cd malphas
@@ -56,14 +52,14 @@ cd malphas
 
 ### 2. Install Dependencies
 
-Use the provided `install_dependencies.sh` script to automate dependency installation. The script detects your operating system and uses the appropriate package manager or source installation.
+Run the `install_dependencies.sh` script to automate dependency installation, which detects your platform:
 
 ```bash
 chmod +x install_dependencies.sh
 ./install_dependencies.sh
 ```
 
-Alternatively, manually install dependencies based on your platform:
+Alternatively, install manually based on your platform:
 
 #### Debian/Ubuntu
 ```bash
@@ -99,7 +95,7 @@ echo 'export PATH=$PATH:$HOME/go/bin' >> ~/.bashrc
 source ~/.bashrc
 ```
 
-> **Note**: Tools like `subfinder`, `httpx-toolkit`, `naabu`, `nuclei`, `dnsrecon`, `amass`, and `wpscan` may require manual installation from source or third-party repositories on Red Hat/Fedora. Check their respective GitHub pages for instructions.
+> **Note**: Tools like `subfinder`, `httpx-toolkit`, `naabu`, `nuclei`, `dnsrecon`, `amass`, and `wpscan` may require source installation. Check their GitHub pages.
 
 #### macOS
 ```bash
@@ -117,27 +113,17 @@ echo 'export PATH=$PATH:$HOME/go/bin' >> ~/.zshrc
 source ~/.zshrc
 ```
 
-> **Note**: Install Homebrew if not already present (`/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`). Tools like `subfinder`, `httpx-toolkit`, `naabu`, `nuclei`, `dnsrecon`, `amass`, and `wpscan` may require source installation.
+> **Note**: Install Homebrew if needed: `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`.
 
 #### Manual Installation (Any Platform)
-If package managers are unavailable, install tools from source:
 - **Python Dependencies**: `pip install -r requirements.txt`
 - **Go Tools**: Use `go install` for `waybackurls`, `dalfox`, `katana`, `trufflehog`, `ffuf`, `gospider`.
-- **Other Tools**: Follow instructions on their GitHub pages (e.g., [subfinder](https://github.com/projectdiscovery/subfinder), [nuclei](https://github.com/projectdiscovery/nuclei)).
+- **Other Tools**: Follow GitHub instructions for `subfinder`, `nuclei`, etc.
 - **Shodan CLI**: `pip install shodan`.
 
-### 3. Configure OWASP ZAP
+### 3. Configure OpenVAS/GVM
 
-- Verify installation:
-  ```bash
-  zap.sh -version
-  ```
-- Default path: `/usr/share/zaproxy/zap.sh` (Linux) or `/Applications/OWASP\ ZAP.app/Contents/MacOS/zap.sh` (macOS).
-- If installed elsewhere, note the path for `config.ini`.
-
-### 4. Configure OpenVAS/GVM
-
-- Install and set up GVM:
+- Set up GVM:
   ```bash
   sudo gvm-setup
   sudo gvm-check-setup
@@ -157,40 +143,11 @@ If package managers are unavailable, install tools from source:
   sudo chmod 0440 /etc/sudoers.d/gvm
   ```
 
-> **Note**: On macOS, GVM setup may require additional configuration. Refer to [GVM documentation](https://greenbone.github.io/docs/).
-
-### 5. Configure Shodan
-
-- Verify installation:
-  ```bash
-  shodan --version
-  ```
-
-### 6. Configure WPScan
-
-- Verify installation:
-  ```bash
-  wpscan --version
-  ```
-
-### 7. Verify Installation
-
-Check that all components are installed:
-```bash
-python -m malphas.main --help
-python --version
-gvm-cli --version
-sqlmap --version
-dnsrecon --version
-amass --version
-gospider --version
-wpscan --version
-shodan --version
-```
+> **Note**: macOS GVM setup may require additional steps. See [GVM documentation](https://greenbone.github.io/docs/).
 
 ## Configuration
 
-Create a `config.ini` file in the `malphas` directory to specify tool paths and API keys. Use `which <tool>` to find paths on your system.
+Create a `config.ini` file in the `malphas` directory. Use `which <tool>` to find tool paths on your system.
 
 ```ini
 [Tools]
@@ -223,17 +180,17 @@ WPSCAN_API_TOKEN = your_wpscan_api_token_here
 SHODAN_API_KEY = your_shodan_api_key_here
 ```
 
-- **Tool Paths**: Update paths based on your system (e.g., `/usr/local/bin` for Go tools on macOS, `$HOME/go/bin` for Linux if installed via Go).
+- **Tool Paths**: Adjust based on your system (e.g., `/usr/local/bin` for Go tools on macOS).
 - **API Keys**:
-  - Set `SHODAN_API_KEY` for Shodan scans (required).
-  - Set `WPSCAN_API_TOKEN` for enhanced WordPress scanning (optional).
-  - Configure `ZAP_API_KEY` for OWASP ZAP.
-  - Specify `OPENVAS_USERNAME` and `OPENVAS_PASSWORD` for GVM.
-- **Optional Settings**:
-  - `BXSS_URL`: For blind XSS testing.
-  - `REDIRECT_URL`: For open redirect testing.
+  - `SHODAN_API_KEY`: Required for Shodan.
+  - `WPSCAN_API_TOKEN`: Optional for WordPress scanning.
+  - `ZAP_API_KEY`: For OWASP ZAP.
+  - `OPENVAS_USERNAME`, `OPENVAS_PASSWORD`: For GVM.
+- **Optional**:
+  - `BXSS_URL`: Blind XSS testing.
+  - `REDIRECT_URL`: Open redirect testing.
 
-To find tool paths:
+Find tool paths:
 ```bash
 which subfinder
 which zap.sh
@@ -242,7 +199,7 @@ which shodan
 
 ## Usage
 
-Run a scan from the project directory:
+Run a scan:
 ```bash
 cd malphas
 python -m malphas.main example.com --config config.ini --verbose
@@ -251,16 +208,16 @@ python -m malphas.main example.com --config config.ini --verbose
 ### Command-Line Options
 
 - `--output, -o`: Output directory (default: `outputs`).
-- `--config, -c`: Configuration file path (default: `config.ini`).
-- `--skip-dns-enum`, `--skip-subdomain-enum`, `--skip-port-scan`, `--skip-vuln-scan`, `--skip-url-fetching`, `--skip-xss-analysis`, `--skip-js-discovery`, `--skip-secrets`, `--skip-open-redirects`, `--skip-advanced-xss`, `--skip-sqli`, `--skip-zap-scan`, `--skip-openvas-scan`, `--skip-cms-scan`: Skip specific scan phases.
-- `--fuzz-with-ffuf`: Enable endpoint fuzzing with `ffuf`.
-- `--use-amass`: Include Amass for subdomain enumeration.
-- `--verbose`: Enable detailed debug logging.
+- `--config, -c`: Config file path (default: `config.ini`).
+- `--skip-dns-enum`, `--skip-subdomain-enum`, `--skip-port-scan`, `--skip-vuln-scan`, `--skip-url-fetching`, `--skip-xss-analysis`, `--skip-js-discovery`, `--skip-secrets`, `--skip-open-redirects`, `--skip-advanced-xss`, `--skip-sqli`, `--skip-zap-scan`, `--skip-openvas-scan`, `--skip-cms-scan`: Skip specific phases.
+- `--fuzz-with-ffuf`: Enable `ffuf` fuzzing.
+- `--use-amass`: Include Amass for subdomains.
+- `--verbose`: Detailed logging.
 
 ### Output Files
 
-Results are stored in `outputs/example_com_<timestamp>/` with files such as:
-- `dnsrecon.txt`, `subdomains_subfinder.txt`, `subdomains_amass.txt`, `live_hosts_httpx.txt`, `shodan_results.json`, `ports_naabu.txt`, `vulnerabilities_network_nuclei.txt`, `lfi_httpx.txt`, `cms_vulns.txt`, `wp_vulns_wpscan.txt`, `urls_wayback.txt`, `urls_gospider.txt`, `urls_combined.txt`, `login_portals.txt`, `sqlmap_vulns.txt`, `zap_spider.json`, `openvas_scan.json`, `xss_dalfox.txt`, `domxss_dalfox.txt`, `advanced_xss_dalfox.txt`, `open_redirects.txt`, `sqli_nuclei.txt`, `vulnerabilities_web_nuclei.txt`, `js_endpoints_katana.txt`, `fuzzed_endpoints_ffuf.json`, `secrets_trufflehog_github_<domain>.json`, `summary_report_<timestamp>.json`.
+Results are in `outputs/example_com_<timestamp>/`:
+- `dnsrecon.txt`, `subdomains_subfinder.txt`, `live_hosts_httpx.txt`, `shodan_results.json`, `ports_naabu.txt`, `vulnerabilities_network_nuclei.txt`, `cms_vulns.txt`, `wp_vulns_wpscan.txt`, `urls_combined.txt`, `login_portals.txt`, `sqlmap_vulns.txt`, `zap_spider.json`, `openvas_scan.json`, `xss_dalfox.txt`, `open_redirects.txt`, `js_endpoints_katana.txt`, `secrets_trufflehog_github_<domain>.json`, `summary_report_<timestamp>.json`.
 
 ### Example Summary Report (`summary_report_<timestamp>.json`)
 
@@ -277,34 +234,23 @@ Results are stored in `outputs/example_com_<timestamp>/` with files such as:
     "sample": ["www.example.com", "app.example.com"]
   },
   "shodan": {
-    "file": "output/example_com_20250524_230200/shodan_results.json",
+    "file": "outputs/example_com_20250524_230200/shodan_results.json",
     "count": 3,
-    "sample": ["ip_str: 93.94.226.100", "ip_str: 93.94.226.101"],
-    "host_count": 3,
-    "sample_hosts": ["93.94.226.100", "93.94.226.101"]
+    "sample": ["ip_str: 93.94.226.100", "ip_str: 93.94.226.101"]
   },
   "cms": {
     "file": "outputs/example_com_20250524_230200/cms_vulns.txt",
     "count": 2,
-    "sample": ["https://blog.example.com/wp-admin/", "https://blog.example.com/wp-content/"],
-    "wordpress_vulns": {
-      "plugins": 5,
-      "themes": 2,
-      "users": 3
-    }
+    "sample": ["https://blog.example.com/wp-admin/"]
   },
   "openvas_scan": {
     "file": "outputs/example_com_20250524_230200/openvas_scan.json",
-    "count": 1,
-    "sample": [],
-    "task_id": "123e4567-e89b-12d3-a456-426614174000",
-    "host_count": 10
+    "task_id": "123e4567-e89b-12d3-a456-426614174000"
   },
   "vulnerabilities_network": {
     "file": "outputs/example_com_20250524_230200/vulnerabilities_network_nuclei.txt",
     "count": 5,
-    "sample": ["[high] CVE-2023-1234 detected"],
-    "severity_counts": {"low": 2, "medium": 1, "high": 2, "critical": 0}
+    "sample": ["[high] CVE-2023-1234 detected"]
   }
 }
 ```
@@ -312,16 +258,15 @@ Results are stored in `outputs/example_com_<timestamp>/` with files such as:
 ## Troubleshooting
 
 - **FileNotFoundError**:
-  Ensure output directory permissions:
+  Check output directory permissions:
   ```bash
   chmod -R u+rw outputs
   ```
 
 - **Scan Hangs**:
-  Enable verbose logging:
+  Use verbose logging:
   ```bash
   python -m malphas.main example.com --verbose
-  wc -l outputs/example_com_<timestamp>/subdomains_combined.txt
   ```
   Skip slow phases:
   ```bash
@@ -329,95 +274,37 @@ Results are stored in `outputs/example_com_<timestamp>/` with files such as:
   ```
 
 - **Tool Not Found**:
-  Verify tool paths:
+  Verify paths:
   ```bash
   which curl
   which zap.sh
-  which sqlmap
-  which wpscan
   which shodan
   ```
 
-- **OWASP ZAP API Errors**:
-  - Verify installation:
-    ```bash
-    zap.sh -version
-    ```
-  - Ensure `ZAP_API_KEY` is set in `config.ini`.
-  - Start ZAP manually:
-    ```bash
-    zap.sh -daemon -port 8081 -config view.disable=true -config api.key=your_zap_api_key_here
-    curl http://localhost:8081
-    ```
-  - Terminate stuck processes:
-    ```bash
-    pkill -f zap.sh
-    ```
+- **OWASP ZAP Errors**:
+  Start ZAP manually:
+  ```bash
+  zap.sh -daemon -port 8081 -config view.disable=true -config api.key=your_zap_api_key_here
+  ```
 
 - **OpenVAS/GVM Errors**:
-  - Verify setup:
-    ```bash
-    sudo gvm-check-setup
-    ```
-  - Check services (Linux):
-    ```bash
-    systemctl status gvmd openvas-scanner ospd-openvas
-    ```
-  - Start GVM:
-    ```bash
-    sudo gvm-start
-    ```
-  - Verify SSH and credentials:
-    ```bash
-    ssh your_openvas_username@localhost
-    ```
-  - Ensure `OPENVAS_USERNAME` and `OPENVAS_PASSWORD` are set in `config.ini`.
-  - Access GVM web interface: `https://localhost:9392`.
-  - Confirm `sudo` permissions (Linux):
-    ```bash
-    sudo -l -U your-username
-    ```
-
-- **SQLMap Errors**:
-  - Verify installation:
-    ```bash
-    sqlmap --version
-    ```
-  - Check login portal detection:
-    ```bash
-    cat outputs/example_com_<timestamp>/login_portals.txt
-    ```
-
-- **WPScan Errors**:
-  - Verify installation:
-    ```bash
-    wpscan --version
-    ```
-  - Check CMS detection:
-    ```bash
-    cat outputs/example_com_<timestamp>/cms_vulns.txt
-    ```
-  - Set `WPSCAN_API_TOKEN` in `config.ini` for enhanced scanning.
+  Check setup:
+  ```bash
+  sudo gvm-check-setup
+  sudo gvm-start
+  ```
 
 - **Shodan Errors**:
-  - Verify installation:
-    ```bash
-    shodan --version
-    ```
-  - Check API key and credits:
-    ```bash
-    shodan init your_shodan_api_key_here
-    shodan info
-    ```
-  - Ensure `SHODAN_API_KEY` is set in `config.ini`.
-
-- **Empty Outputs**:
-  Empty results may occur for certain domains or failed scans. Use `--verbose` to inspect logs.
+  Check API key:
+  ```bash
+  shodan init your_shodan_api_key_here
+  shodan info
+  ```
 
 ## License
 
-Malphas is licensed under the GNU Affero General Public License v3.0. See the `LICENSE` file for details.
+GNU Affero General Public License v3.0. See `LICENSE` file.
 
 ## Disclaimer
 
-Malphas is intended for authorized security testing only. Always obtain explicit permission from the target system's owner before scanning. Unauthorized use may violate applicable laws and regulations.
+Use Malphas only for authorized security testing. Obtain explicit permission from target system owners. Unauthorized use may violate laws.
