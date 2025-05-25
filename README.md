@@ -1,6 +1,6 @@
 # Malphas
 
-Malphas is a modular, automated reconnaissance and vulnerability scanning tool for security researchers and penetration testers. Built with Python 3.8+ (tested up to Python 3.13), it performs DNS enumeration, subdomain discovery, live host probing, Shodan integration, vulnerability scanning, and more. Its asynchronous execution and flexible configuration make it efficient for professional security assessments.
+Malphas is a modular, automated reconnaissance and vulnerability scanning tool for security researchers and penetration testers. Built with Python 3.13, it performs DNS enumeration, subdomain discovery, live host probing, Shodan integration, vulnerability scanning, and more. Its asynchronous execution and flexible configuration make it efficient for professional security assessments.
 
 ## Key Features
 
