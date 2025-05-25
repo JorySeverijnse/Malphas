@@ -5,14 +5,18 @@ import time
 import json
 from pathlib import Path
 from .config import load_config
-from .recon import (
-    dnsrecon_scan, subfinder_enum, amass_enum, httpx_probe, shodan_scan,
-    naabu_scan, nuclei_scan_network, check_lfi, cms_checks, fetch_urls_wayback,
-    gospider_crawl, detect_login_portals, sqlmap_scan, zap_spider_scan,
-    openvas_scan, analyze_urls_for_xss, analyze_urls_for_domxss,
-    check_xss_advanced, check_open_redirects, check_sqli_nuclei,
-    nuclei_scan_web, js_discovery_katana, fuzz_endpoints_ffuf,
-    github_secrets_trufflehog
+from .recon.dns_scans import dnsrecon_scan
+from .recon.sub_scans import subfinder_enum, amass_scan
+from .recon.host_scans import httpx_probe, shodan_scan, naabu_scan
+from .recon.vuln_scans import (
+    nuclei_scan_network, check_lfi, cms_checks, sqlmap_scan,
+    zap_spider_scan, openvas_scan, analyze_urls_for_xss,
+    analyze_urls_for_domxss, check_xss_advanced
+)
+from .recon.web_scans import fetch_urls_wayback, gospider_crawl, detect_login_portals, check_open_redirects
+from .recon.additional_scans import (
+    check_sqli_nuclei, nuclei_scan_web, js_discovery_katana,
+    fuzz_endpoints_ffuf, github_secrets_trufflehog
 )
 from .summarize import summarize_results
 
@@ -78,65 +82,83 @@ async def main():
     if not state:
         state = {"domain": args.domain, "tasks": {}}
 
-    # Define task sequence
+    # Define task sequence with input file checks
     tasks = [
         ("dnsrecon_scan", lambda: dnsrecon_scan(
             args.domain, output_dir, config["dnsrecon_path"], state["tasks"], args.rate_limit)),
         ("subfinder_enum", lambda: subfinder_enum(
             args.domain, output_dir, config["subfinder_path"], state["tasks"], args.rate_limit)),
-        ("amass_enum", lambda: amass_enum(
+        ("amass_enum", lambda: amass_scan(
             args.domain, output_dir, config["amass_path"], state["tasks"], args.amass_active, args.rate_limit)
             if args.use_amass else None),
         ("httpx_probe", lambda: httpx_probe(
-            output_dir / "subdomains_subfinder.txt", output_dir, config["httpx_path"], state["tasks"], args.rate_limit)),
+            output_dir / "subdomains_subfinder.txt", output_dir, config["httpx_path"], state["tasks"], args.rate_limit)
+            if (output_dir / "subdomains_subfinder.txt").exists() else None),
         ("shodan_scan", lambda: shodan_scan(
             args.domain, output_dir / "live_hosts_httpx.txt", output_dir, config["shodan_path"],
-            config["shodan_api_key"], state["tasks"], args.rate_limit)),
+            config["shodan_api_key"], state["tasks"], args.rate_limit)
+            if (output_dir / "live_hosts_httpx.txt").exists() else None),
         ("naabu_scan", lambda: naabu_scan(
-            output_dir / "subdomains_subfinder.txt", output_dir, config["naabu_path"], state["tasks"], args.rate_limit)),
+            output_dir / "subdomains_subfinder.txt", output_dir, config["naabu_path"], state["tasks"], args.rate_limit)
+            if (output_dir / "subdomains_subfinder.txt").exists() else None),
         ("nuclei_scan_network", lambda: nuclei_scan_network(
-            output_dir / "live_hosts_httpx.txt", output_dir, config["nuclei_path"], state["tasks"], args.rate_limit)),
+            output_dir / "live_hosts_httpx.txt", output_dir, config["nuclei_path"], state["tasks"], args.rate_limit)
+            if (output_dir / "live_hosts_httpx.txt").exists() else None),
         ("check_lfi", lambda: check_lfi(
-            output_dir / "live_hosts_httpx.txt", output_dir, config["httpx_path"], state["tasks"], args.rate_limit)),
+            output_dir / "live_hosts_httpx.txt", output_dir, config["httpx_path"], state["tasks"], args.rate_limit)
+            if (output_dir / "live_hosts_httpx.txt").exists() else None),
         ("cms_checks", lambda: cms_checks(
             output_dir / "live_hosts_httpx.txt", output_dir, config["httpx_path"], config["wpscan_path"],
-            config["wpscan_api_token"], state["tasks"], args.rate_limit) if not args.skip_cms_scan else None),
+            config["wpscan_api_token"], state["tasks"], args.rate_limit)
+            if not args.skip_cms_scan and (output_dir / "live_hosts_httpx.txt").exists() else None),
         ("fetch_urls_wayback", lambda: fetch_urls_wayback(
             args.domain, output_dir, config["waybackurls_path"], state["tasks"], args.rate_limit)),
         ("gospider_crawl", lambda: gospider_crawl(
             args.domain, output_dir, config["gospider_path"], state["tasks"], args.rate_limit)),
         ("detect_login_portals", lambda: detect_login_portals(
-            output_dir / "urls_gospider.txt", output_dir, config["httpx_path"], state["tasks"], args.rate_limit)),
+            output_dir / "urls_gospider.txt", output_dir, config["httpx_path"], state["tasks"], args.rate_limit)
+            if (output_dir / "urls_gospider.txt").exists() else None),
         ("sqlmap_scan", lambda: sqlmap_scan(
             output_dir / "login_portals.txt", output_dir, config["sqlmap_path"], state["tasks"],
-            args.sqlmap_level, args.sqlmap_risk)),
+            args.sqlmap_level, args.sqlmap_risk)
+            if (output_dir / "login_portals.txt").exists() else None),
         ("zap_spider_scan", lambda: zap_spider_scan(
             output_dir / "live_hosts_httpx.txt", output_dir, config["curl_path"], config["zap_api_url"],
-            config["zap_api_key"], state["tasks"], args.rate_limit)),
+            config["zap_api_key"], state["tasks"], args.rate_limit)
+            if (output_dir / "live_hosts_httpx.txt").exists() else None),
         ("openvas_scan", lambda: openvas_scan(
             output_dir / "live_hosts_httpx.txt", output_dir, config["openvas_username"],
-            config["openvas_password"], state["tasks"])),
+            config["openvas_password"], state["tasks"])
+            if (output_dir / "live_hosts_httpx.txt").exists() else None),
         ("analyze_urls_for_xss", lambda: analyze_urls_for_xss(
-            output_dir / "urls_gospider.txt", output_dir, config["dalfox_path"], state["tasks"], args.rate_limit)),
+            output_dir / "urls_gospider.txt", output_dir, config["dalfox_path"], state["tasks"], args.rate_limit)
+            if (output_dir / "urls_gospider.txt").exists() else None),
         ("analyze_urls_for_domxss", lambda: analyze_urls_for_domxss(
             output_dir / "urls_gospider.txt", output_dir, config["dalfox_path"], config["bxss_url"],
-            state["tasks"], args.rate_limit)),
+            state["tasks"], args.rate_limit)
+            if (output_dir / "urls_gospider.txt").exists() else None),
         ("check_xss_advanced", lambda: check_xss_advanced(
             output_dir / "urls_gospider.txt", output_dir, config["dalfox_path"], config["bxss_url"],
-            state["tasks"], args.rate_limit)),
+            state["tasks"], args.rate_limit)
+            if (output_dir / "urls_gospider.txt").exists() else None),
         ("check_open_redirects", lambda: check_open_redirects(
             output_dir / "urls_gospider.txt", output_dir, config["curl_path"], config["redirect_url"],
-            state["tasks"], args.rate_limit)),
+            state["tasks"], args.rate_limit)
+            if (output_dir / "urls_gospider.txt").exists() else None),
         ("check_sqli_nuclei", lambda: check_sqli_nuclei(
             output_dir / "subdomains_subfinder.txt", output_dir / "urls_gospider.txt", output_dir,
-            config["httpx_path"], config["nuclei_path"], state["tasks"], args.rate_limit)),
+            config["httpx_path"], config["nuclei_path"], state["tasks"], args.rate_limit)
+            if (output_dir / "subdomains_subfinder.txt").exists() and (output_dir / "urls_gospider.txt").exists() else None),
         ("nuclei_scan_web", lambda: nuclei_scan_web(
-            output_dir / "urls_gospider.txt", output_dir, config["nuclei_path"], state["tasks"], args.rate_limit)),
+            output_dir / "urls_gospider.txt", output_dir, config["nuclei_path"], state["tasks"], args.rate_limit)
+            if (output_dir / "urls_gospider.txt").exists() else None),
         ("js_discovery_katana", lambda: js_discovery_katana(
-            output_dir / "live_hosts_httpx.txt", output_dir, config["katana_path"], state["tasks"], args.rate_limit)),
+            output_dir / "live_hosts_httpx.txt", output_dir, config["katana_path"], state["tasks"], args.rate_limit)
+            if (output_dir / "live_hosts_httpx.txt").exists() else None),
         ("fuzz_endpoints_ffuf", lambda: fuzz_endpoints_ffuf(
             output_dir / "js_endpoints_katana.txt", output_dir, config["ffuf_path"], state["tasks"],
-            config["wordlist"], args.rate_limit)),
+            config["wordlist"], args.rate_limit)
+            if (output_dir / "js_endpoints_katana.txt").exists() else None),
         ("github_secrets_trufflehog", lambda: github_secrets_trufflehog(
             args.domain, output_dir, config["trufflehog_path"], state["tasks"], args.rate_limit)),
     ]
@@ -154,8 +176,11 @@ async def main():
     for task_name, task_func in tasks[start_index:]:
         logging.info(f"Running task: {task_name}")
         try:
-            result = await task_func() if task_func else None
-            logging.debug(f"Task {task_name} result: {result}")
+            if task_func:
+                result = await task_func()
+                logging.info(f"Task {task_name} completed with result: {result}")
+            else:
+                logging.info(f"Skipping task {task_name} (no input or disabled)")
             save_state(output_dir, state)
         except Exception as e:
             logging.error(f"Task {task_name} failed: {e}")

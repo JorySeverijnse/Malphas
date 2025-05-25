@@ -1,9 +1,11 @@
+# tower/utils.py
 import asyncio
 import logging
 from pathlib import Path
 from typing import List, Optional
 
 async def run_cmd(cmd: List[str], output_file: Optional[Path] = None, timeout: int = 3600) -> Optional[str]:
+    """Run a command asynchronously and optionally save output to a file."""
     try:
         process = await asyncio.create_subprocess_exec(
             *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
@@ -27,6 +29,7 @@ async def run_cmd(cmd: List[str], output_file: Optional[Path] = None, timeout: i
         return None
 
 def read_file_lines_or_empty(file_path: Path) -> List[str]:
+    """Read lines from a file, returning an empty list if the file doesn't exist or fails."""
     try:
         if file_path.exists():
             with file_path.open() as f:

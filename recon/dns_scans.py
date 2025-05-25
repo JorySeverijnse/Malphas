@@ -1,0 +1,53 @@
+# tower/recon/dns_scans.py
+import asyncio
+import logging
+import json
+from pathlib import Path
+from typing import Optional
+from ..utils import run_cmd
+
+async def dnsrecon_scan(
+    domain: str,
+    output_dir: Path,
+    dnsrecon_path: str,
+    state: dict,
+    rate_limit: int,
+    timeout: int = 600
+) -> Optional[Path]:
+    """Perform DNS reconnaissance using dnsrecon."""
+    task_name = "dnsrecon_scan"
+    if state.get(task_name, {}).get("completed"):
+        logging.info(f"Skipping {task_name}, already completed: {state[task_name]['output']}")
+        return Path(state[task_name]["output"]) if state[task_name].get("output") else None
+
+    if not Path(dnsrecon_path).is_file():
+        logging.error(f"Dnsrecon binary not found: {dnsrecon_path}")
+        state[task_name] = {"completed": False, "output": None, "error": f"File not found: {dnsrecon_path}"}
+        return None
+
+    logging.info(f"Running DNS reconnaissance for: {domain}")
+    output_file = output_dir / "dnsrecon.json"
+    cmd = [
+        dnsrecon_path, "-d", domain, "-t", "std", "--json", str(output_file)
+    ]
+    try:
+        await run_cmd(cmd, timeout=timeout)
+        if output_file.exists():
+            logging.info(f"DNS reconnaissance completed successfully, output: {output_file}")
+            state[task_name] = {"completed": True, "output": str(output_file)}
+            return output_file
+        logging.info("No DNS records found or dnsrecon failed")
+        state[task_name] = {"completed": True, "output": None}
+        return None
+    except asyncio.TimeoutError:
+        logging.error(f"Dnsrecon timed out after {timeout} seconds")
+        state[task_name] = {"completed": False, "output": None, "error": f"Timeout after {timeout}s"}
+        return None
+    except FileNotFoundError as e:
+        logging.error(f"Dnsrecon command not found: {e}")
+        state[task_name] = {"completed": False, "output": None, "error": str(e)}
+        return None
+    except Exception as e:
+        logging.error(f"Dnsrecon failed: {e}")
+        state[task_name] = {"completed": False, "output": None, "error": str(e)}
+        return None

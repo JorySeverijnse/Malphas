@@ -1,3 +1,4 @@
+# tower/summarize.py
 import json
 import logging
 from pathlib import Path
@@ -5,6 +6,7 @@ from typing import Dict
 from .utils import read_file_lines_or_empty
 
 async def summarize_results(output_dir: Path, summary_file: Path):
+    """Summarize scan results into a JSON report."""
     summary: Dict[str, Dict] = {
         "dns": {"records": [], "record_count": 0},
         "subdomains": {"count": 0, "sample": []},
