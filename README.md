@@ -23,7 +23,7 @@ Malphas is a modular, automated reconnaissance and vulnerability scanning tool f
 
 ## Prerequisites
 
-- **Python**: 3.8+ (tested up to 3.13).
+- **Python**: 3.8+ (3.13 recommended, tested up to 3.13).
 - **Required Tools**: `subfinder`, `httpx`, `naabu`, `nuclei`, `waybackurls`, `dalfox`, `katana`, `trufflehog`, `ffuf`, `curl`, `zaproxy`, `sqlmap`, `dnsrecon`, `amass`, `gospider`, `wpscan`, `shodan`.
 - **Python Dependencies** (in `requirements.txt`):
   - `python-gvm==24.3.0`
@@ -50,7 +50,28 @@ cd malphas
 
 > **Note**: Replace `https://github.com/malphas/malphas.git` with the actual repository URL if different.
 
-### 2. Install Dependencies
+### 2. Set Up Python Environment
+
+Create a virtual environment to manage dependencies:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+> **Note**: Ensure Python 3.13 is used (`python3 --version`). If using `pyenv`, set the local version: `pyenv local 3.13.3`.
+
+### 3. Make `malphas` a Python Package
+
+Ensure the `malphas` directory is recognized as a Python package by creating an empty `__init__.py` file:
+
+```bash
+touch malphas/__init__.py
+```
+
+This is required for `python -m malphas.main` to work.
+
+### 4. Install Dependencies
 
 Run the `install_dependencies.sh` script to automate dependency installation, which detects your platform:
 
@@ -62,6 +83,7 @@ chmod +x install_dependencies.sh
 Alternatively, install manually based on your platform:
 
 #### Debian/Ubuntu
+
 ```bash
 sudo apt update
 sudo apt install -y python3 python3-pip curl git subfinder httpx-toolkit naabu nuclei zaproxy sqlmap dnsrecon amass wpscan openvas-scanner gvm
@@ -80,6 +102,7 @@ source ~/.bashrc
 ```
 
 #### Red Hat/Fedora
+
 ```bash
 sudo dnf install -y python3 python3-pip curl git openvas-scanner gvm
 pip install -r requirements.txt
@@ -98,6 +121,7 @@ source ~/.bashrc
 > **Note**: Tools like `subfinder`, `httpx-toolkit`, `naabu`, `nuclei`, `dnsrecon`, `amass`, and `wpscan` may require source installation. Check their GitHub pages.
 
 #### macOS
+
 ```bash
 brew install python3 curl git openvas gvm
 pip install -r requirements.txt
@@ -116,32 +140,40 @@ source ~/.zshrc
 > **Note**: Install Homebrew if needed: `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`.
 
 #### Manual Installation (Any Platform)
+
 - **Python Dependencies**: `pip install -r requirements.txt`
 - **Go Tools**: Use `go install` for `waybackurls`, `dalfox`, `katana`, `trufflehog`, `ffuf`, `gospider`.
 - **Other Tools**: Follow GitHub instructions for `subfinder`, `nuclei`, etc.
 - **Shodan CLI**: `pip install shodan`.
 
-### 3. Configure OpenVAS/GVM
+### 5. Configure OpenVAS/GVM
 
 - Set up GVM:
-  ```bash
-  sudo gvm-setup
-  sudo gvm-check-setup
-  ```
+
+```bash
+sudo gvm-setup
+sudo gvm-check-setup
+```
+
 - Create a GMP user:
-  ```bash
-  sudo runuser -u _gvm -- gvmd --create-user=your-username --password=your-password
-  ```
+
+```bash
+sudo runuser -u _gvm -- gvmd --create-user=your-username --password=your-password
+```
+
 - Enable SSH:
-  ```bash
-  sudo systemctl enable ssh
-  sudo systemctl start ssh
-  ```
+
+```bash
+sudo systemctl enable ssh
+sudo systemctl start ssh
+```
+
 - Configure passwordless `sudo` for GVM (Linux):
-  ```bash
-  echo "your-username ALL=(ALL) NOPASSWD: /usr/sbin/gvm-start, /usr/sbin/gvm-stop" | sudo tee /etc/sudoers.d/gvm
-  sudo chmod 0440 /etc/sudoers.d/gvm
-  ```
+
+```bash
+echo "your-username ALL=(ALL) NOPASSWD: /usr/sbin/gvm-start, /usr/sbin/gvm-stop" | sudo tee /etc/sudoers.d/gvm
+sudo chmod 0440 /etc/sudoers.d/gvm
+```
 
 > **Note**: macOS GVM setup may require additional steps. See [GVM documentation](https://greenbone.github.io/docs/).
 
@@ -150,60 +182,86 @@ source ~/.zshrc
 Create a `config.ini` file in the `malphas` directory. Use `which <tool>` to find tool paths on your system.
 
 ```ini
-[Tools]
-subfinder = /usr/bin/subfinder
-httpx = /usr/bin/httpx
-naabu = /usr/bin/naabu
-nuclei = /usr/bin/nuclei
-waybackurls = /usr/local/bin/waybackurls
-dalfox = /usr/local/bin/dalfox
-katana = /usr/local/bin/katana
-trufflehog = /usr/local/bin/trufflehog
-ffuf = /usr/local/bin/ffuf
-curl = /usr/bin/curl
-zap = /usr/share/zaproxy/zap.sh
-sqlmap = /usr/bin/sqlmap
-dnsrecon = /usr/bin/dnsrecon
-amass = /usr/bin/amass
-gospider = /usr/local/bin/gospider
-wpscan = /usr/bin/wpscan
-shodan = /usr/local/bin/shodan
-
 [Settings]
-BXSS_URL =
-REDIRECT_URL = http://localhost:8000
-ZAP_API_URL = http://localhost:8081
+DNSRECON_PATH = /usr/bin/dnsrecon
+SUBFINDER_PATH = /usr/local/bin/subfinder
+AMASS_PATH = /usr/bin/amass
+HTTPX_PATH = /usr/bin/httpx
+SHODAN_PATH = /usr/local/bin/shodan
+SHODAN_API_KEY = your_shodan_api_key_here
+NAABU_PATH = /usr/bin/naabu
+NUCLEI_PATH = /usr/bin/nuclei
+WPSCAN_PATH = /usr/bin/wpscan
+WPSCAN_API_TOKEN = your_wpscan_api_token_here
+WAYBACKURLS_PATH = /usr/local/bin/waybackurls
+GOSPIDER_PATH = /usr/local/bin/gospider
+SQLMAP_PATH = /usr/bin/sqlmap
+CURL_PATH = /usr/bin/curl
+ZAP_API_URL = http://localhost:8080
 ZAP_API_KEY = your_zap_api_key_here
 OPENVAS_USERNAME = your_openvas_username
 OPENVAS_PASSWORD = your_openvas_password
-WPSCAN_API_TOKEN = your_wpscan_api_token_here
-SHODAN_API_KEY = your_shodan_api_key_here
+DALFOX_PATH = /usr/local/bin/dalfox
+BXSS_URL = 
+REDIRECT_URL = https://example.com
+KATANA_PATH = /usr/local/bin/katana
+FFUF_PATH = /usr/local/bin/ffuf
+TRUFFLEHOG_PATH = /usr/local/bin/trufflehog
+WORDLIST = /usr/share/wordlists/seclists/Discovery/Web-Content/common.txt
+
+[ToolSettings]
+sqlmap_level = 2
+sqlmap_risk = 2
+
+[Dictionaries]
+DNS_WORDLIST = /usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt
+LFI_PAYLOADS = ../../../../etc/passwd,../../windows/win.ini
+CMS_PATHS = /wp-config.php,/wp-admin/,/wp-login.php,/wp-content/,/configuration.php,/administrator/,/sites/default/settings.php,/user/login
+LOGIN_PATHS = /login,/admin,/signin,/dashboard,/wp-login.php,/user/login
 ```
 
-- **Tool Paths**: Adjust based on your system (e.g., `/usr/local/bin` for Go tools on macOS).
+- **Tool Paths**: Adjust based on your system (e.g., `/usr/local/bin` for Go tools on macOS). Use `which <tool>` to find paths.
 - **API Keys**:
-  - `SHODAN_API_KEY`: Required for Shodan.
+  - `SHODAN_API_KEY`: Required for Shodan scans.
   - `WPSCAN_API_TOKEN`: Optional for WordPress scanning.
   - `ZAP_API_KEY`: For OWASP ZAP.
   - `OPENVAS_USERNAME`, `OPENVAS_PASSWORD`: For GVM.
 - **Optional**:
   - `BXSS_URL`: Blind XSS testing.
   - `REDIRECT_URL`: Open redirect testing.
+  - `WORDLIST`, `DNS_WORDLIST`: Paths to wordlists for fuzzing and DNS enumeration.
+  - `LFI_PAYLOADS`, `CMS_PATHS`, `LOGIN_PATHS`: Comma-separated lists for vulnerability checks.
 
 Find tool paths:
+
 ```bash
+which dnsrecon
 which subfinder
-which zap.sh
-which shodan
+which httpx
 ```
 
 ## Usage
 
-Run a scan:
+Ensure you are in the `malphas` directory and the virtual environment is activated:
+
 ```bash
 cd malphas
+source venv/bin/activate
+```
+
+Run a scan using the module syntax:
+
+```bash
 python -m malphas.main example.com --config config.ini --verbose
 ```
+
+Alternatively, run the `main.py` script directly:
+
+```bash
+python main.py example.com --config config.ini --verbose
+```
+
+> **Note**: Ensure `config.ini` exists in the `malphas` directory. Verify Python version: `python --version` (should be 3.8+).
 
 ### Command-Line Options
 
@@ -217,6 +275,7 @@ python -m malphas.main example.com --config config.ini --verbose
 ### Output Files
 
 Results are in `outputs/example_com_<timestamp>/`:
+
 - `dnsrecon.txt`, `subdomains_subfinder.txt`, `live_hosts_httpx.txt`, `shodan_results.json`, `ports_naabu.txt`, `vulnerabilities_network_nuclei.txt`, `cms_vulns.txt`, `wp_vulns_wpscan.txt`, `urls_combined.txt`, `login_portals.txt`, `sqlmap_vulns.txt`, `zap_spider.json`, `openvas_scan.json`, `xss_dalfox.txt`, `open_redirects.txt`, `js_endpoints_katana.txt`, `secrets_trufflehog_github_<domain>.json`, `summary_report_<timestamp>.json`.
 
 ### Example Summary Report (`summary_report_<timestamp>.json`)
@@ -257,49 +316,71 @@ Results are in `outputs/example_com_<timestamp>/`:
 
 ## Troubleshooting
 
+- **ModuleNotFoundError: No module named 'malphas'**:
+  - Ensure you are in the `malphas` directory: `cd malphas`.
+  - Verify `__init__.py` exists: `ls malphas/__init__.py`.
+  - Activate the virtual environment: `source venv/bin/activate`.
+  - Set `PYTHONPATH` if needed: `export PYTHONPATH=$PYTHONPATH:$PWD`.
+  - Alternatively, run: `python main.py example.com --config config.ini`.
+  - Check installed dependencies: `pip list | grep -E 'python-gvm|shodan'`.
+
 - **FileNotFoundError**:
-  Check output directory permissions:
-  ```bash
-  chmod -R u+rw outputs
-  ```
+
+Check output directory permissions:
+
+```bash
+chmod -R u+rw outputs
+```
 
 - **Scan Hangs**:
-  Use verbose logging:
-  ```bash
-  python -m malphas.main example.com --verbose
-  ```
-  Skip slow phases:
-  ```bash
-  python -m malphas.main example.com --skip-subdomain-enum
-  ```
+
+Use verbose logging:
+
+```bash
+python -m malphas.main example.com --verbose
+```
+
+Skip slow phases:
+
+```bash
+python -m malphas.main example.com --skip-subdomain-enum
+```
 
 - **Tool Not Found**:
-  Verify paths:
-  ```bash
-  which curl
-  which zap.sh
-  which shodan
-  ```
+
+Verify paths:
+
+```bash
+which dnsrecon
+which subfinder
+which httpx
+```
 
 - **OWASP ZAP Errors**:
-  Start ZAP manually:
-  ```bash
-  zap.sh -daemon -port 8081 -config view.disable=true -config api.key=your_zap_api_key_here
-  ```
+
+Start ZAP manually:
+
+```bash
+zap.sh -daemon -port 8080 -config view.disable=true -config api.key=your_zap_api_key_here
+```
 
 - **OpenVAS/GVM Errors**:
-  Check setup:
-  ```bash
-  sudo gvm-check-setup
-  sudo gvm-start
-  ```
+
+Check setup:
+
+```bash
+sudo gvm-check-setup
+sudo gvm-start
+```
 
 - **Shodan Errors**:
-  Check API key:
-  ```bash
-  shodan init your_shodan_api_key_here
-  shodan info
-  ```
+
+Check API key:
+
+```bash
+shodan init your_shodan_api_key_here
+shodan info
+```
 
 ## License
 
