@@ -857,7 +857,7 @@ async def gospider_crawl(
         if output_file.exists():
             logging.debug(f"URL crawling completed, output: {output_file}")
             state[task_name] = {"completed": True, "output": str(output_file)}
-            return output_file
+        return output_file
         logging.debug("No URLs found or gospider failed")
         state[task_name] = {"completed": True, "output": None}
         return None
@@ -1516,12 +1516,67 @@ async def check_open_redirects(
         logging.error(f"URLs file not found: {urls_file}")
         state[task_name] = {"completed": False, "output": None, "error": f"File not found: {urls_file}"}
         return None
+    if not redirect_url:
+        logging.warning("REDIRECT_URL not set in config.ini. Skipping open redirect checks.")
+        state[task_name] = {"completed": True, "output": None}
+        return None
 
     logging.debug(f"Checking open redirects from: {urls_file}")
     output_file = output_dir / "open_redirects.txt"
     
     urls = read_file_lines_or_empty(urls_file)
-    filtered_urls = [url for url in urls if re.search(r'=http', url, re.IGNORECASE)]
+    redirect_params = r'(url|redirect|next|dest|destination|goto|return|return_url|return_to|continue|out|external)=[^&]*'
+    filtered_urls = [url for url in urls if re.search(redirect_params, url, re.IGNORECASE) or re.search(r'=http', url, re.IGNORECASE)]
+    
     if not filtered_urls:
-        logging.debug("No URLs with =http found")
-        state[task_name] = {"completed":
+        logging.debug("No URLs with potential redirect parameters found")
+        state[task_name] = {"completed": True, "output": None}
+        return None
+    
+    vulnerable_urls = []
+    for url in filtered_urls:
+        parsed_url = urlparse(url)
+        query_params = parse_qs(parsed_url.query)
+        modified = False
+        
+        for param in query_params:
+            if re.match(redirect_params, f"{param}=", re.IGNORECASE):
+                query_params[param] = [redirect_url]
+                modified = True
+        
+        if modified:
+            new_query = urlencode(query_params, doseq=True)
+            new_url = urlunparse((
+                parsed_url.scheme,
+                parsed_url.netloc,
+                parsed_url.path,
+                parsed_url.params,
+                new_query,
+                parsed_url.fragment
+            ))
+            
+            cmd = [curl_path, "-s", "-I", "-L", new_url]
+            try:
+                output = await run_cmd(cmd, timeout=30)
+                if redirect_url in output:
+                    vulnerable_urls.append(new_url)
+                    logging.debug(f"Open redirect found: {new_url}")
+            except asyncio.TimeoutError:
+                logging.warning(f"Curl timed out for {new_url}")
+            except FileNotFoundError as e:
+                logging.error(f"Curl command not found: {e}")
+                state[task_name] = {"completed": False, "output": None, "error": str(e)}
+                return None
+            except Exception as e:
+                logging.warning(f"Failed to check {new_url}: {e}")
+    
+    if vulnerable_urls:
+        with output_file.open('w') as f:
+            f.write('\n'.join(vulnerable_urls) + '\n')
+        logging.debug(f"Open redirect check completed, output: {output_file}")
+        state[task_name] = {"completed": True, "output": str(output_file)}
+        return output_file
+    
+    logging.debug("No open redirect vulnerabilities found")
+    state[task_name] = {"completed": True, "output": None}
+    return None

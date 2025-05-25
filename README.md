@@ -255,13 +255,13 @@ Run a scan using the module syntax:
 python -m malphas.main example.com --config config.ini --verbose
 ```
 
-Alternatively, run the `main.py` script directly:
+Alternatively, run the `main.py` script directly (if modified for absolute imports):
 
 ```bash
 python main.py example.com --config config.ini --verbose
 ```
 
-> **Note**: Ensure `config.ini` exists in the `malphas` directory. Verify Python version: `python --version` (should be 3.8+).
+> **Note**: Ensure `config.ini` exists in the `malphas` directory. Verify Python version: `python --version` (should be 3.8+). If `recon.py` has syntax errors, fix them (see Troubleshooting).
 
 ### Command-Line Options
 
@@ -316,13 +316,29 @@ Results are in `outputs/example_com_<timestamp>/`:
 
 ## Troubleshooting
 
-- **ModuleNotFoundError: No module named 'malphas'**:
+- **SyntaxError in recon.py**:
+  - Check `recon.py` for unclosed braces (e.g., `state[task_name] = {"completed":`).
+  - Open `recon.py` and fix lines around 1527, ensuring dictionaries are closed:
+    ```python
+    state[task_name] = {"completed": False, "output": None, "error": "Error message"}
+    ```
+  - Test:
+    ```bash
+    python -c "import malphas.recon"
+    ```
+
+- **ModuleNotFoundError: No module named 'malphas'** or **ImportError**:
   - Ensure you are in the `malphas` directory: `cd malphas`.
   - Verify `__init__.py` exists: `ls malphas/__init__.py`.
   - Activate the virtual environment: `source venv/bin/activate`.
   - Set `PYTHONPATH` if needed: `export PYTHONPATH=$PYTHONPATH:$PWD`.
-  - Alternatively, run: `python main.py example.com --config config.ini`.
+  - Alternatively, run: `python main.py example.com --config config.ini` after modifying `main.py` to use absolute imports.
   - Check installed dependencies: `pip list | grep -E 'python-gvm|shodan'`.
+  - Install as a package:
+    ```bash
+    echo "from setuptools import setup, find_packages\nsetup(name='malphas', version='0.1', packages=find_packages(), install_requires=['python-gvm==24.3.0', 'shodan==1.31.0'])" > setup.py
+    pip install -e .
+    ```
 
 - **FileNotFoundError**:
 
