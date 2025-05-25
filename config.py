@@ -33,6 +33,10 @@ def load_config(config_path: str) -> dict:
         "wordlist": config.get("Settings", "WORDLIST", fallback="/usr/share/wordlists/seclists/Discovery/Web-Content/common.txt"),
         "sqlmap_level": config.getint("ToolSettings", "sqlmap_level", fallback=2),
         "sqlmap_risk": config.getint("ToolSettings", "sqlmap_risk", fallback=2),
+        "dns_wordlist": config.get("Dictionaries", "DNS_WORDLIST", fallback="/usr/share/seclists/Discovery/DNS/subdomains-top1million-5000.txt"),
+        "lfi_payloads": config.get("Dictionaries", "LFI_PAYLOADS", fallback="").split(",") if config.get("Dictionaries", "LFI_PAYLOADS", fallback="") else ["../../../../etc/passwd", "../../windows/win.ini"],
+        "cms_paths": config.get("Dictionaries", "CMS_PATHS", fallback="").split(",") if config.get("Dictionaries", "CMS_PATHS", fallback="") else ["/wp-config.php", "/wp-admin/", "/wp-login.php", "/wp-content/", "/configuration.php", "/administrator/", "/sites/default/settings.php", "/user/login"],
+        "login_paths": config.get("Dictionaries", "LOGIN_PATHS", fallback="").split(",") if config.get("Dictionaries", "LOGIN_PATHS", fallback="") else ["/login", "/admin", "/signin", "/dashboard", "/wp-login.php", "/user/login"],
     }
     
     return settings
