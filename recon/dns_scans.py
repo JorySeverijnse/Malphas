@@ -1,4 +1,3 @@
-# tower/recon/dns_scans.py
 import asyncio
 import logging
 import json
@@ -11,8 +10,9 @@ async def dnsrecon_scan(
     output_dir: Path,
     dnsrecon_path: str,
     state: dict,
-    rate_limit: int,
-    timeout: int = 600
+    rate_limit: int, # Not directly used in the improved command, but kept for function signature
+    timeout: int = 600,
+    wordlist_for_subdomains: Optional[Path] = None # Added for brute force
 ) -> Optional[Path]:
     """Perform DNS reconnaissance using dnsrecon."""
     task_name = "dnsrecon_scan"
@@ -24,12 +24,21 @@ async def dnsrecon_scan(
         logging.error(f"Dnsrecon binary not found: {dnsrecon_path}")
         state[task_name] = {"completed": False, "output": None, "error": f"File not found: {dnsrecon_path}"}
         return None
+    if wordlist_for_subdomains and not wordlist_for_subdomains.is_file():
+        logging.error(f"Wordlist for subdomains not found: {wordlist_for_subdomains}")
+        state[task_name] = {"completed": False, "output": None, "error": f"File not found: {wordlist_for_subdomains}"}
+        return None
 
     logging.info(f"Running DNS reconnaissance for: {domain}")
     output_file = output_dir / "dnsrecon.json"
     cmd = [
-        dnsrecon_path, "-d", domain, "-t", "std", "--json", str(output_file)
+        dnsrecon_path, "-d", domain, "-t", "std,brt,srv,axfr,goo", # Expanded types
+        "--json", str(output_file),
+        "--threads", "10" # Added threads
     ]
+    if wordlist_for_subdomains:
+        cmd.extend(["-w", str(wordlist_for_subdomains)]) # Added wordlist for brute force
+
     try:
         await run_cmd(cmd, timeout=timeout)
         if output_file.exists():

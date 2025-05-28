@@ -1,10 +1,9 @@
-# test/recon/additional_scans.py
 import asyncio
 import logging
 import json
 from pathlib import Path
 from typing import Optional
-from ..utils import run_cmd, read_file_lines_or_empty
+from ..utils import run_cmd, read_file_lines_or_empty # Assuming run_cmd is compatible with list of strings
 
 async def check_sqli_nuclei(
     subdomains_file: Path,
@@ -41,12 +40,14 @@ async def check_sqli_nuclei(
 
     logging.info(f"Checking SQLi vulnerabilities with Nuclei on: {urls_file}")
     output_file = output_dir / "sqli_nuclei.txt"
+    output_file_json = output_dir / "sqli_nuclei.json" # Added for JSON output
     temp_file = output_dir / "live_urls_httpx.txt"
 
     # Probe live URLs with httpx
     httpx_cmd = [
         httpx_path, "-l", str(urls_file), "-silent", "-o", str(temp_file),
-        "-threads", "50", "-timeout", "15", "-rl", str(rate_limit)
+        "-threads", "50", "-timeout", "15", "-rl", str(rate_limit),
+        "-follow-redirects", "-title", "-tech-detect" # Added improvements
     ]
     try:
         await run_cmd(httpx_cmd, timeout=timeout)
@@ -63,10 +64,11 @@ async def check_sqli_nuclei(
     nuclei_cmd = [
         nuclei_path, "-l", str(temp_file), "-t", "nuclei-templates/vulnerabilities/sqli",
         "-severity", "medium,high,critical", "-silent", "-o", str(output_file),
-        "-rl", str(rate_limit), "-timeout", "10"
+        "-json", str(output_file_json), # Added JSON output
+        "-rl", str(rate_limit), "-timeout", "10", "-retries", "2" # Added retries
     ]
     try:
-        for attempt in range(2):
+        for attempt in range(2): # The Python script already has a retry logic. We'll keep the command's retry and potentially remove the script's outer loop if desired.
             await run_cmd(nuclei_cmd, timeout=timeout)
             if output_file.exists() and output_file.stat().st_size > 0:
                 logging.info(f"SQLi scan completed, output: {output_file}")
@@ -115,10 +117,13 @@ async def nuclei_scan_web(
 
     logging.info(f"Running web vulnerability scan with Nuclei on: {urls_file}")
     output_file = output_dir / "vulnerabilities_web_nuclei.txt"
+    output_file_json = output_dir / "vulnerabilities_web_nuclei.json" # Added for JSON output
+
     cmd = [
         nuclei_path, "-l", str(urls_file), "-t", "nuclei-templates/vulnerabilities",
         "-severity", "low,medium,high,critical", "-silent", "-o", str(output_file),
-        "-rl", str(rate_limit), "-timeout", "10"
+        "-json", str(output_file_json), # Added JSON output
+        "-rl", str(rate_limit), "-timeout", "10", "-retries", "2" # Added retries
     ]
     try:
         for attempt in range(2):
@@ -153,7 +158,7 @@ async def js_discovery_katana(
     rate_limit: int,
     timeout: int = 600
 ) -> Optional[Path]:
-    """Discover JavaScript endpoints using Katana (placeholder)."""
+    """Discover JavaScript endpoints using Katana."""
     task_name = "js_discovery_katana"
     if state.get(task_name, {}).get("completed"):
         logging.info(f"Skipping {task_name}, already completed: {state[task_name]['output']}")
@@ -170,9 +175,13 @@ async def js_discovery_katana(
 
     logging.info(f"Running JavaScript discovery with Katana on: {live_hosts_file}")
     output_file = output_dir / "js_endpoints_katana.txt"
+    output_file_json = output_dir / "js_endpoints_katana.json" # Added for JSON output
+
     cmd = [
         katana_path, "-l", str(live_hosts_file), "-o", str(output_file),
-        "-js-crawl", "-silent", "-rl", str(rate_limit)
+        "-json", str(output_file_json), # Added JSON output
+        "-js-crawl", "-silent", "-rl", str(rate_limit),
+        "-c", "10", "-d", "3" # Added concurrency and depth
     ]
     try:
         await run_cmd(cmd, timeout=timeout)
@@ -205,7 +214,7 @@ async def fuzz_endpoints_ffuf(
     rate_limit: int,
     timeout: int = 600
 ) -> Optional[Path]:
-    """Fuzz endpoints using FFUF (placeholder)."""
+    """Fuzz endpoints using FFUF."""
     task_name = "fuzz_endpoints_ffuf"
     if state.get(task_name, {}).get("completed"):
         logging.info(f"Skipping {task_name}, already completed: {state[task_name]['output']}")
@@ -226,9 +235,15 @@ async def fuzz_endpoints_ffuf(
 
     logging.info(f"Fuzzing endpoints with FFUF on: {js_endpoints_file}")
     output_file = output_dir / "fuzz_ffuf.txt"
+    output_file_json = output_dir / "fuzz_ffuf.json" # Added for JSON output
+
     cmd = [
         ffuf_path, "-u", "FUZZ", "-w", str(wordlist), "-o", str(output_file),
-        "-l", str(js_endpoints_file), "-silent", "-rl", str(rate_limit)
+        "-json", str(output_file_json), # Added JSON output
+        "-l", str(js_endpoints_file), "-silent", "-rl", str(rate_limit),
+        "-t", "100", # Added threads
+        "-mc", "200,301,302,403", "-ms", "100-", "-fc", "404", # Added filtering
+        "-follow-redirects" # Added follow redirects
     ]
     try:
         await run_cmd(cmd, timeout=timeout)
@@ -253,14 +268,14 @@ async def fuzz_endpoints_ffuf(
         return None
 
 async def github_secrets_trufflehog(
-    domain: str,
+    domain: str, # This should ideally be a GitHub organization name for --org flag
     output_dir: Path,
     trufflehog_path: str,
     state: dict,
-    rate_limit: int,
+    rate_limit: int, # Concurrency is used here, not rate_limit in the traditional sense
     timeout: int = 600
 ) -> Optional[Path]:
-    """Scan for secrets in GitHub repositories using TruffleHog (placeholder)."""
+    """Scan for secrets in GitHub repositories using TruffleHog."""
     task_name = "github_secrets_trufflehog"
     if state.get(task_name, {}).get("completed"):
         logging.info(f"Skipping {task_name}, already completed: {state[task_name]['output']}")
@@ -271,11 +286,15 @@ async def github_secrets_trufflehog(
         state[task_name] = {"completed": False, "output": None, "error": f"Binary not found: {trufflehog_path}"}
         return None
 
-    logging.info(f"Scanning for GitHub secrets for domain: {domain}")
+    # IMPORTANT: The --org flag expects a GitHub organization username, not a general domain.
+    # Adjust 'github_org_name' based on your target's GitHub presence.
+    github_org_name = domain # This line might need manual adjustment in your script
+    logging.info(f"Scanning for GitHub secrets for organization: {github_org_name}")
     output_file = output_dir / "trufflehog_secrets.json"
     cmd = [
-        trufflehog_path, "github", "--org", domain, "--json", "-o", str(output_file),
-        "--concurrency", str(rate_limit)
+        trufflehog_path, "github", "--org", github_org_name, "--json", "-o", str(output_file),
+        "--concurrency", str(rate_limit), # Renamed from rate_limit to concurrency for clarity
+        "--max-depth", "100" # Added max-depth
     ]
     try:
         await run_cmd(cmd, timeout=timeout)

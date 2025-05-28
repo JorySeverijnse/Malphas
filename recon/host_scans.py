@@ -1,10 +1,9 @@
-# tower/recon/host_scans.py
 import asyncio
 import logging
 import json
 from pathlib import Path
 from typing import Optional
-from ..utils import run_cmd, read_file_lines_or_empty
+from ..utils import run_cmd, read_file_lines_or_empty # Assuming run_cmd is compatible with list of strings
 
 async def httpx_probe(
     subdomains_file: Path,
@@ -33,7 +32,8 @@ async def httpx_probe(
     output_file = output_dir / "live_hosts_httpx.txt"
     cmd = [
         httpx_path, "-l", str(subdomains_file), "-silent", "-o", str(output_file),
-        "-threads", "50", "-timeout", "15", "-rl", str(rate_limit)
+        "-threads", "50", "-timeout", "15", "-rl", str(rate_limit),
+        "-follow-redirects", "-title", "-tech-detect" # Added improvements
     ]
     try:
         await run_cmd(cmd, timeout=timeout)
@@ -58,13 +58,13 @@ async def httpx_probe(
         return None
 
 async def shodan_scan(
-    domain: str,
+    domain: str, # Not directly used in the command as it iterates over hosts
     live_hosts_file: Path,
     output_dir: Path,
     shodan_path: str,
     shodan_api_key: str,
     state: dict,
-    rate_limit: int,
+    rate_limit: int, # Not used in shodan host command
     timeout: int = 600
 ) -> Optional[Path]:
     """Scan hosts using Shodan."""
@@ -93,12 +93,18 @@ async def shodan_scan(
 
     for host in hosts:
         cmd = [
-            shodan_path, "host", host.strip(), "--apikey", shodan_api_key
+            shodan_path, "host", host.strip(), "--apikey", shodan_api_key,
+            "--json" # Added JSON output
         ]
         try:
             output = await run_cmd(cmd, timeout=timeout)
             if output:
-                results.append({"host": host.strip(), "data": output})
+                # If shodan outputs JSON, try to parse it directly
+                try:
+                    results.append({"host": host.strip(), "data": json.loads(output)})
+                except json.JSONDecodeError:
+                    logging.warning(f"Failed to decode JSON from Shodan for {host.strip()}. Raw output: {output}")
+                    results.append({"host": host.strip(), "data": output}) # Store raw if not JSON
         except Exception as e:
             logging.warning(f"Shodan scan for {host.strip()} failed: {e}")
 
@@ -137,9 +143,15 @@ async def naabu_scan(
 
     logging.info(f"Scanning ports from: {subdomains_file}")
     output_file = output_dir / "ports_naabu.txt"
+    output_file_json = output_dir / "ports_naabu.json" # Added for JSON output
+
     cmd = [
         naabu_path, "-l", str(subdomains_file), "-o", str(output_file),
-        "-silent", "-rate", str(rate_limit)
+        "-json", str(output_file_json), # Added JSON output
+        "-silent", "-rate", str(rate_limit),
+        "-p", "top1000", # Added top ports
+        "-retries", "2", # Added retries
+        "-v" # Added verbose output
     ]
     try:
         await run_cmd(cmd, timeout=timeout)
