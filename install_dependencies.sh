@@ -13,7 +13,9 @@ detect_distro() {
     . /etc/os-release
     DISTRO_ID="${ID,,}" # Convert to lowercase
     # Use ID_LIKE as a fallback if ID is too specific (e.g., popos -> ubuntu)
-    [[ -z "$DISTRO_ID" || "$DISTRO_ID" == "debian" && -n "$ID_LIKE" ]] && DISTRO_ID="${ID_LIKE,,}"
+    if [[ -z "$DISTRO_ID" || ("$DISTRO_ID" == "debian" && ${ID_LIKE:+x}) ]]; then
+      DISTRO_ID="${ID_LIKE,,}"
+    fi
   elif command -v lsb_release &>/dev/null; then
     DISTRO_ID=$(lsb_release -is | tr '[:upper:]' '[:lower:]')
   elif [[ -f /etc/debian_version ]]; then
@@ -65,22 +67,43 @@ export PATH="$PATH:$GOBIN"
 # Checks if a package or command is installed and installs it using the detected package manager.
 install_if_missing() {
   local pkgs=("$@")
+  local pkg_name_for_install="" # Initialize for use inside the loop
 
   for pkg in "${pkgs[@]}"; do
+    # Determine the actual package name for installation if it differs from the command name
+    case "$DISTRO_FAMILY" in
+    debian)
+      if [[ "$pkg" == "go" ]]; then
+        pkg_name_for_install="$GO_PACKAGE"
+      else
+        pkg_name_for_install="$pkg"
+      fi
+      ;;
+    rhel)
+      if [[ "$pkg" == "sqlmap" ]]; then
+        pkg_name_for_install="python3-sqlmap" # Correct package name for RHEL-based systems
+      elif [[ "$pkg" == "go" ]]; then
+        pkg_name_for_install="$GO_PACKAGE"
+      else
+        pkg_name_for_install="$pkg"
+      fi
+      ;;
+    arch)
+      pkg_name_for_install="$pkg" # Arch package names typically match command names
+      ;;
+    *)
+      pkg_name_for_install="$pkg" # Default for other unsupported distros
+      ;;
+    esac
+
     # Check if the command exists OR if the package is installed via system package manager
-    if command -v "$pkg" &>/dev/null || dpkg -s "$pkg" &>/dev/null || rpm -q "$pkg" &>/dev/null || pacman -Q "$pkg" &>/dev/null; then
+    if command -v "$pkg" &>/dev/null || dpkg -s "$pkg_name_for_install" &>/dev/null || rpm -q "$pkg_name_for_install" &>/dev/null || pacman -Q "$pkg_name_for_install" &>/dev/null; then
       echo "[✔] ${pkg} already installed."
     else
-      echo "[*] Installing: ${pkg}..."
-      # Special handling for the Go package if its name differs across distros
-      if [[ "$pkg" == "go" && "$GO_PACKAGE" != "go" ]]; then
-        if ! $INSTALL_CMD "$GO_PACKAGE"; then
-          echo "[!] Failed to install ${pkg}. Please check your internet connection or package manager status."
-        fi
-      else
-        if ! $INSTALL_CMD "$pkg"; then
-          echo "[!] Failed to install ${pkg}. Please check your internet connection or package manager status."
-        fi
+      echo "[*] Installing: ${pkg} (as ${pkg_name_for_install})..."
+      if ! $INSTALL_CMD "$pkg_name_for_install"; then
+        echo "[!] Failed to install ${pkg}. Please check your internet connection or package manager status."
+        echo "    You might need to install ${pkg} manually."
       fi
     fi
   done
@@ -114,17 +137,27 @@ install_prerequisites() {
 # OpenVAS/GVM is handled separately for Arch due to its complexity.
 install_distro_tools() {
   echo -e "\n=== Installing Tools from Distro Repositories ==="
-  # These are tools that are typically well-maintained in distro repositories.
-  # openvas-scanner is handled differently for Arch Linux due to complexity.
-  local common_distro_tools=(sqlmap wpscan zaproxy openvas-scanner) # openvas-scanner will only be attempted on Debian/RHEL
 
   case "$DISTRO_FAMILY" in
-  debian | rhel)
-    install_if_missing "${common_distro_tools[@]}"
+  debian)
+    # SQLMap is usually available.
+    install_if_missing sqlmap
+    echo -e "\n[!] For Debian/Ubuntu, 'wpscan' is often installed as a Ruby gem (gem install wpscan)."
+    echo "    'ZAP (zaproxy)' is typically installed from its official website, a Snap package (snap install zaproxy --classic), or by adding a PPA."
+    echo "    'OpenVAS/GVM' (Greenbone Vulnerability Management) is a complex suite that may require adding specific repositories or manual compilation."
+    echo "    Please refer to their official documentation for installation instructions."
+    ;;
+  rhel)
+    # SQLMap might be python3-sqlmap on RHEL.
+    install_if_missing sqlmap
+    echo -e "\n[!] For RHEL/CentOS/Fedora, 'wpscan' is often installed as a Ruby gem."
+    echo "    'ZAP (zaproxy)' is typically installed from its official website or by adding a third-party repository."
+    echo "    'OpenVAS/GVM' (Greenbone Vulnerability Management) is a complex suite that often requires specific repository additions (e.g., EPEL for some components) or manual compilation."
+    echo "    Please refer to their official documentation for installation instructions."
     ;;
   arch)
     # Tools generally available in official Arch repos or easier AUR packages.
-    local arch_general_tools=(sqlmap wpscan zaproxy)
+    local arch_general_tools=(sqlmap) # Only sqlmap is generally straightforward via pacman
 
     # Install general tools first
     for pkg in "${arch_general_tools[@]}"; do
@@ -139,9 +172,10 @@ install_distro_tools() {
         echo "[✔] ${pkg} already installed."
       fi
     done
-    echo -e "\n[!] For Arch Linux, OpenVAS/Greenbone Vulnerability Management (GVM) is a complex suite."
-    echo "    It often requires manual installation and configuration, potentially from AUR or source, involving database setup and service management."
-    echo "    Please refer to the Arch Wiki (https://wiki.archlinux.org/title/Greenbone_Vulnerability_Management) or official Greenbone documentation for installation instructions."
+    echo -e "\n[!] For Arch Linux, 'wpscan' is available in the AUR (e.g., wpscan-git)."
+    echo "    'ZAP (zaproxy)' is available in the AUR (e.g., zaproxy)."
+    echo "    OpenVAS/Greenbone Vulnerability Management (GVM) is a complex suite, often requiring manual installation and configuration, potentially from AUR or source, involving database setup and service management."
+    echo "    Please refer to the Arch Wiki (https://wiki.archlinux.org/title/Greenbone_Vulnerability_Management) or official documentation for installation instructions for these tools."
     ;;
   esac
 }
