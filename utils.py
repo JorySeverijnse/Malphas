@@ -1,4 +1,3 @@
-# tower/utils.py
 import asyncio
 import logging
 from pathlib import Path

@@ -1,4 +1,3 @@
-# tower/recon/web_scans.py
 import asyncio
 import logging
 import re
