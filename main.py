@@ -61,7 +61,6 @@ async def main():
     parser.add_argument("--start-from", help="Start from specific task (e.g., shodan_scan)")
     args = parser.parse_args()
 
-    # Validate arguments
     if args.sqlmap_level < 1 or args.sqlmap_level > 5:
         parser.error("sqlmap-level must be between 1 and 5")
     if args.sqlmap_risk < 1 or args.sqlmap_risk > 3:
@@ -69,20 +68,15 @@ async def main():
     if args.rate_limit < 1:
         parser.error("rate-limit must be at least 1")
 
-    # Load configuration
     config = load_config(args.config)
     output_dir = Path("outputs") / f"{args.domain.replace('.', '_')}_{int(time.time())}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Setup logging
     setup_logging(args.verbose, output_dir)
-
-    # Load or initialize state
     state = load_state(output_dir) if args.resume else {}
     if not state:
         state = {"domain": args.domain, "tasks": {}}
 
-    # Define task sequence with input file checks
     tasks = [
         ("dnsrecon_scan", lambda: dnsrecon_scan(
             args.domain, output_dir, config["dnsrecon_path"], state["tasks"], args.rate_limit)),
@@ -95,22 +89,22 @@ async def main():
             output_dir / "subdomains_subfinder.txt", output_dir, config["httpx_path"], state["tasks"], args.rate_limit)
             if (output_dir / "subdomains_subfinder.txt").exists() else None),
         ("shodan_scan", lambda: shodan_scan(
-            args.domain, output_dir / "live_hosts_httpx.txt", output_dir, config["shodan_path"],
+            args.domain, output_dir / "live_hosts_urls_only.txt", output_dir, config["shodan_path"],
             config["shodan_api_key"], state["tasks"], args.rate_limit)
-            if (output_dir / "live_hosts_httpx.txt").exists() else None),
+            if (output_dir / "live_hosts_urls_only.txt").exists() else None),
         ("naabu_scan", lambda: naabu_scan(
             output_dir / "subdomains_subfinder.txt", output_dir, config["naabu_path"], state["tasks"], args.rate_limit)
             if (output_dir / "subdomains_subfinder.txt").exists() else None),
         ("nuclei_scan_network", lambda: nuclei_scan_network(
-            output_dir / "live_hosts_httpx.txt", output_dir, config["nuclei_path"], state["tasks"], args.rate_limit)
-            if (output_dir / "live_hosts_httpx.txt").exists() else None),
+            output_dir / "live_hosts_urls_only.txt", output_dir, config["nuclei_path"], state["tasks"], args.rate_limit)
+            if (output_dir / "live_hosts_urls_only.txt").exists() else None),
         ("check_lfi", lambda: check_lfi(
-            output_dir / "live_hosts_httpx.txt", output_dir, config["httpx_path"], state["tasks"], args.rate_limit)
-            if (output_dir / "live_hosts_httpx.txt").exists() else None),
+            output_dir / "live_hosts_urls_only.txt", output_dir, config["httpx_path"], state["tasks"], args.rate_limit)
+            if (output_dir / "live_hosts_urls_only.txt").exists() else None),
         ("cms_checks", lambda: cms_checks(
-            output_dir / "live_hosts_httpx.txt", output_dir, config["httpx_path"], config["wpscan_path"],
+            output_dir / "live_hosts_urls_only.txt", output_dir, config["httpx_path"], config["wpscan_path"],
             config["wpscan_api_token"], state["tasks"], args.rate_limit)
-            if not args.skip_cms_scan and (output_dir / "live_hosts_httpx.txt").exists() else None),
+            if not args.skip_cms_scan and (output_dir / "live_hosts_urls_only.txt").exists() else None),
         ("fetch_urls_wayback", lambda: fetch_urls_wayback(
             args.domain, output_dir, config["waybackurls_path"], state["tasks"], args.rate_limit)),
         ("gospider_crawl", lambda: gospider_crawl(
@@ -123,13 +117,13 @@ async def main():
             args.sqlmap_level, args.sqlmap_risk)
             if (output_dir / "login_portals.txt").exists() else None),
         ("zap_spider_scan", lambda: zap_spider_scan(
-            output_dir / "live_hosts_httpx.txt", output_dir, config["curl_path"], config["zap_api_url"],
+            output_dir / "live_hosts_urls_only.txt", output_dir, config["curl_path"], config["zap_api_url"],
             config["zap_api_key"], state["tasks"], args.rate_limit)
-            if (output_dir / "live_hosts_httpx.txt").exists() else None),
+            if (output_dir / "live_hosts_urls_only.txt").exists() else None),
         ("openvas_scan", lambda: openvas_scan(
-            output_dir / "live_hosts_httpx.txt", output_dir, config["openvas_username"],
+            output_dir / "live_hosts_urls_only.txt", output_dir, config["openvas_username"],
             config["openvas_password"], state["tasks"])
-            if (output_dir / "live_hosts_httpx.txt").exists() else None),
+            if (output_dir / "live_hosts_urls_only.txt").exists() else None),
         ("analyze_urls_for_xss", lambda: analyze_urls_for_xss(
             output_dir / "urls_gospider.txt", output_dir, config["dalfox_path"], state["tasks"], args.rate_limit)
             if (output_dir / "urls_gospider.txt").exists() else None),
@@ -146,15 +140,15 @@ async def main():
             state["tasks"], args.rate_limit)
             if (output_dir / "urls_gospider.txt").exists() else None),
         ("check_sqli_nuclei", lambda: check_sqli_nuclei(
-            output_dir / "subdomains_subfinder.txt", output_dir / "urls_gospider.txt", output_dir,
+            output_dir / "subdomains_subfinder.txt", output_dir / "login_portals.txt", output_dir,
             config["httpx_path"], config["nuclei_path"], state["tasks"], args.rate_limit)
-            if (output_dir / "subdomains_subfinder.txt").exists() and (output_dir / "urls_gospider.txt").exists() else None),
+            if (output_dir / "subdomains_subfinder.txt").exists() and (output_dir / "login_portals.txt").exists() else None),
         ("nuclei_scan_web", lambda: nuclei_scan_web(
             output_dir / "urls_gospider.txt", output_dir, config["nuclei_path"], state["tasks"], args.rate_limit)
             if (output_dir / "urls_gospider.txt").exists() else None),
         ("js_discovery_katana", lambda: js_discovery_katana(
-            output_dir / "live_hosts_httpx.txt", output_dir, config["katana_path"], state["tasks"], args.rate_limit)
-            if (output_dir / "live_hosts_httpx.txt").exists() else None),
+            output_dir / "live_hosts_urls_only.txt", output_dir, config["katana_path"], state["tasks"], args.rate_limit)
+            if (output_dir / "live_hosts_urls_only.txt").exists() else None),
         ("fuzz_endpoints_ffuf", lambda: fuzz_endpoints_ffuf(
             output_dir / "js_endpoints_katana.txt", output_dir, config["ffuf_path"], state["tasks"],
             config["wordlist"], args.rate_limit)
@@ -163,7 +157,6 @@ async def main():
             args.domain, output_dir, config["trufflehog_path"], state["tasks"], args.rate_limit)),
     ]
 
-    # Handle start-from
     start_index = 0
     if args.start_from:
         task_names = [t[0] for t in tasks]
@@ -172,7 +165,6 @@ async def main():
         start_index = task_names.index(args.start_from)
         logging.info(f"Starting from task: {args.start_from}")
 
-    # Run tasks
     for task_name, task_func in tasks[start_index:]:
         logging.info(f"Running task: {task_name}")
         try:
@@ -189,7 +181,6 @@ async def main():
             state["tasks"][task_name]["error"] = str(e)
             save_state(output_dir, state)
 
-    # Summarize results
     logging.info("Generating summary report")
     summary_file = output_dir / f"summary_report_{args.domain.replace('.', '_')}.json"
     await summarize_results(output_dir, summary_file)

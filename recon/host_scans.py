@@ -3,8 +3,8 @@ import logging
 import json
 from pathlib import Path
 from typing import Optional
-from ..utils import run_cmd, read_file_lines_or_empty 
-from ..config import load_config # Added import
+from ..utils import run_cmd, read_file_lines_or_empty
+from ..config import load_config
 
 async def httpx_probe(
     subdomains_file: Path,
@@ -13,10 +13,10 @@ async def httpx_probe(
     state: dict,
     rate_limit: int,
     timeout: int = 600,
-    config_path: str = "config.ini" # Added config_path
+    config_path: str = "config.ini"
 ) -> Optional[Path]:
     """Probe live hosts using httpx."""
-    config_data = load_config(config_path) # Load config
+    config_data = load_config(config_path)
     task_name = "httpx_probe"
     if state.get(task_name, {}).get("completed"):
         logging.info(f"Skipping {task_name}, already completed: {state[task_name]['output']}")
@@ -33,22 +33,58 @@ async def httpx_probe(
 
     logging.info(f"Probing live hosts from: {subdomains_file}")
     output_file = output_dir / "live_hosts_httpx.txt"
+    urls_only_file = output_dir / "live_hosts_urls_only.txt"
+
     cmd = [
         httpx_path, "-l", str(subdomains_file), "-silent", "-o", str(output_file),
-        "-threads", str(config_data['httpx_common_threads']), 
-        "-timeout", str(config_data['httpx_flag_timeout']), 
+        "-threads", str(config_data['httpx_common_threads']),
+        "-timeout", str(config_data['httpx_flag_timeout']),
         "-rl", str(rate_limit),
-        "-follow-redirects", "-title", "-tech-detect" 
+        "-follow-redirects", "-title", "-tech-detect",
+        "-sc", "-location", "-server", "-method", "-cname", "-ip", "-websocket", "-efqdn",
+        "-json"
     ]
     try:
         await run_cmd(cmd, timeout=timeout)
-        if output_file.exists() and output_file.stat().st_size > 0: # Check size
-            logging.info(f"Live host scanning completed, output: {output_file}")
-            state[task_name] = {"completed": True, "output": str(output_file)}
+        if output_file.exists() and output_file.stat().st_size > 0:
+            urls = []
+            try:
+                with output_file.open('r', encoding='utf-8') as f:
+                    lines = f.readlines()
+                for line in lines:
+                    try:
+                        data = json.loads(line.strip())
+                        if 'url' in data:
+                            urls.append(data['url'])
+                    except json.JSONDecodeError:
+                        logging.warning(f"Failed to parse JSON line in {output_file}: {line.strip()}")
+                        continue
+            except IOError as e:
+                logging.error(f"Failed to read {output_file}: {e}")
+                urls = []
+
+            if urls:
+                try:
+                    with urls_only_file.open('w', encoding='utf-8') as f:
+                        for url in urls:
+                            f.write(url + '\n')
+                    logging.info(f"Extracted {len(urls)} URLs to {urls_only_file}")
+                except IOError as e:
+                    logging.error(f"Failed to write to {urls_only_file}: {e}")
+                    urls_only_file.unlink(missing_ok=True)
+                    state[task_name] = {"completed": True, "output": str(output_file)}
+                    return output_file
+            else:
+                logging.info("No valid URLs extracted from httpx JSON output.")
+                urls_only_file.unlink(missing_ok=True)
+
+            logging.info(f"Live host scanning completed, output: {output_file}, URLs only: {urls_only_file}")
+            state[task_name] = {"completed": True, "output": str(output_file), "urls_only_output": str(urls_only_file)}
             return output_file
-        logging.info("No live hosts found or httpx failed")
-        state[task_name] = {"completed": True, "output": None} # Success if no hosts found
-        return None
+        else:
+            logging.info("No live hosts found or httpx failed")
+            state[task_name] = {"completed": True, "output": None}
+            return None
     except asyncio.TimeoutError:
         logging.error(f"Httpx scan timed out after {timeout} seconds")
         state[task_name] = {"completed": False, "output": None, "error": f"Timeout after {timeout}s"}
@@ -67,14 +103,13 @@ async def shodan_scan(
     live_hosts_file: Path,
     output_dir: Path,
     shodan_path: str,
-    shodan_api_key: str, # API Key is passed directly
+    shodan_api_key: str,
     state: dict,
     rate_limit: int, 
     timeout: int = 600,
-    config_path: str = "config.ini" # Added config_path (though not used for cmd params here)
+    config_path: str = "config.ini"
 ) -> Optional[Path]:
     """Scan hosts using Shodan."""
-    # config_data = load_config(config_path) # Not used for new cmd params in this func
     task_name = "shodan_scan"
     if state.get(task_name, {}).get("completed"):
         logging.info(f"Skipping {task_name}, already completed: {state[task_name]['output']}")
@@ -99,27 +134,20 @@ async def shodan_scan(
     results = []
 
     for host in hosts:
-        # Shodan CLI for 'host' typically outputs JSON by default if result found
-        # The --json flag might not be standard for `shodan host <ip>` in all versions
-        # but we can ensure results are handled as JSON.
         cmd = [
             shodan_path, "host", host.strip(), "--apikey", shodan_api_key
         ]
-        # If specific JSON output is desired and supported by the version:
-        # cmd.append("--json") 
         try:
-            output_str = await run_cmd(cmd, timeout=timeout) # run_cmd returns string
+            output_str = await run_cmd(cmd, timeout=timeout)
             if output_str:
                 try:
-                    # Attempt to parse the entire output as JSON
                     json_data = json.loads(output_str)
                     results.append({"host": host.strip(), "data": json_data})
                 except json.JSONDecodeError:
                     logging.warning(f"Shodan output for {host.strip()} was not valid JSON. Storing as raw. Output: {output_str[:200]}...")
-                    results.append({"host": host.strip(), "data": output_str}) # Store raw if not JSON
+                    results.append({"host": host.strip(), "data": output_str})
             else:
                 logging.info(f"No Shodan output for {host.strip()}")
-
         except Exception as e:
             logging.warning(f"Shodan scan for {host.strip()} failed: {e}")
 
@@ -140,10 +168,10 @@ async def naabu_scan(
     state: dict,
     rate_limit: int,
     timeout: int = 600,
-    config_path: str = "config.ini" # Added config_path
+    config_path: str = "config.ini"
 ) -> Optional[Path]:
     """Scan for open ports using Naabu."""
-    config_data = load_config(config_path) # Load config
+    config_data = load_config(config_path)
     task_name = "naabu_scan"
     if state.get(task_name, {}).get("completed"):
         logging.info(f"Skipping {task_name}, already completed: {state[task_name]['output']}")
@@ -160,14 +188,14 @@ async def naabu_scan(
 
     logging.info(f"Scanning ports from: {subdomains_file}")
     output_file = output_dir / "ports_naabu.txt"
-    output_file_json = output_dir / "ports_naabu.json" 
+    output_file_json = output_dir / "ports_naabu.json"
 
     cmd = [
         naabu_path, "-l", str(subdomains_file), "-o", str(output_file),
-        "-json", str(output_file_json), 
+        "-json", str(output_file_json),
         "-silent", "-rate", str(rate_limit),
-        "-p", config_data['naabu_port_range'], 
-        "-retries", str(config_data['naabu_retries']), 
+        "-p", config_data['naabu_port_range'],
+        "-retries", str(config_data['naabu_retries']),
     ]
     if config_data['naabu_verbose_flag']:
         cmd.append("-v")
@@ -175,9 +203,8 @@ async def naabu_scan(
     try:
         await run_cmd(cmd, timeout=timeout)
         if (output_file.exists() and output_file.stat().st_size > 0) or \
-           (output_file_json.exists() and output_file_json.stat().st_size > 0): # Check size
+           (output_file_json.exists() and output_file_json.stat().st_size > 0):
             logging.info(f"Port scanning completed, output: {output_file} / {output_file_json}")
-            # Prefer JSON output for state if available
             state_output = str(output_file_json) if output_file_json.exists() and output_file_json.stat().st_size > 0 else str(output_file)
             state[task_name] = {"completed": True, "output": state_output}
             return Path(state_output)

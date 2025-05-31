@@ -81,25 +81,13 @@ async def gospider_crawl(
         return None
 
     logging.info(f"Crawling URLs for domain: {domain} with GoSpider")
-    # Gospider outputs to a folder specified by -o, containing files like output.txt, urls.txt etc.
-    # The original script expects `urls_gospider.txt`. Gospider might create this inside the folder.
-    # Let's have gospider output to a specific file if possible, or adjust expectations.
-    # Gospider's -o is an output folder. Inside it, it creates files.
-    # `gospider -s http://example.com -o output_folder` will create `output_folder/http___example.com.txt`
-    # For simplicity, let's keep the original file name, Gospider might handle `output_dir / "urls_gospider.txt"` as a folder.
-    # Or, better, Gospider has `-O` (capital O) for a single output file of URLs.
-    
     output_file_path = output_dir / "urls_gospider.txt" # This will be the direct output file for URLs
 
     cmd = [
         gospider_path, "-s", f"https://{domain}", # Assuming https, could be http/https probe first
-        "-O", str(output_file_path), # Use -O for single file URL output
+        "-o", str(output_file_path),
         "-d", str(config_data['gospider_depth']),
-        # -r is delay between requests in milliseconds, rate_limit here is float, ensure conversion.
-        # If rate_limit is intended as "requests per second", then delay is 1000/rate_limit.
-        # Original script uses -r str(rate_limit), implies rate_limit *is* the delay in ms.
-        # Let's assume rate_limit parameter is the delay in ms for gospider's -r.
-        "-r", str(int(rate_limit)) if isinstance(rate_limit, float) else str(rate_limit) 
+        "-rl", str(int(rate_limit)) if isinstance(rate_limit, float) else str(rate_limit),
     ]
     cmd.extend(config_data.get('gospider_flags_list', [])) # Adds --robots, --sitemap etc.
 

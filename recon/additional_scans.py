@@ -291,52 +291,77 @@ async def fuzz_endpoints_ffuf(
         return None
 
 async def github_secrets_trufflehog(
-    domain: str, 
+    domain: str,
     output_dir: Path,
     trufflehog_path: str,
     state: dict,
-    rate_limit: int, # This is used for --concurrency
+    rate_limit: int,
     timeout: int = 600,
-    config_path: str = "config.ini" # Added config_path
+    config_path: str = "config.ini"
 ) -> Optional[Path]:
     """Scan for secrets in GitHub repositories using TruffleHog."""
-    config_data = load_config(config_path) # Load config
+    config_data = load_config(config_path)
     task_name = "github_secrets_trufflehog"
+
     if state.get(task_name, {}).get("completed"):
         logging.info(f"Skipping {task_name}, already completed: {state[task_name]['output']}")
         return Path(state[task_name]["output"]) if state[task_name]["output"] else None
 
     if not Path(trufflehog_path).is_file():
-        logging.error(f"TruffleHog binary not found: {trufflehog_path}")
-        state[task_name] = {"completed": False, "output": None, "error": f"Binary not found: {trufflehog_path}"}
+        error = f"TruffleHog binary not found: {trufflehog_path}"
+        logging.error(error)
+        state[task_name] = {"completed": False, "output": None, "error": error}
         return None
 
-    github_org_name = domain 
-    logging.info(f"Scanning for GitHub secrets for organization: {github_org_name}")
+    github_org_name = domain
     output_file = output_dir / "trufflehog_secrets.json"
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+
     cmd = [
-        trufflehog_path, "github", "--org", github_org_name, "--json", "-o", str(output_file),
-        "--concurrency", str(rate_limit), # Uses the rate_limit function parameter
-        "--max-depth", str(config_data['trufflehog_max_depth'])
+        trufflehog_path, "github",
+        "--org", github_org_name,
+        "--json",
+        "--concurrency", str(rate_limit),
+        "--max-depth", str(config_data["trufflehog_max_depth"])
     ]
+
+    logging.info(f"Running TruffleHog: {' '.join(cmd)}")
+
     try:
-        await run_cmd(cmd, timeout=timeout)
+        with output_file.open("w") as f:
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=f,
+                stderr=asyncio.subprocess.PIPE
+            )
+            try:
+                _, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
+            except asyncio.TimeoutError:
+                process.kill()
+                await process.wait()
+                raise
+
+        if process.returncode != 0:
+            error_msg = stderr.decode().strip() if stderr else "Unknown error"
+            logging.error(f"TruffleHog failed: {error_msg}")
+            state[task_name] = {"completed": False, "output": None, "error": error_msg}
+            return None
+
         if output_file.exists() and output_file.stat().st_size > 0:
             logging.info(f"GitHub secrets scan completed, output: {output_file}")
             state[task_name] = {"completed": True, "output": str(output_file)}
             return output_file
-        logging.info("No secrets found or TruffleHog failed")
-        state[task_name] = {"completed": True, "output": None}
-        return None
+        else:
+            logging.info("No secrets found.")
+            state[task_name] = {"completed": True, "output": None}
+            return None
+
     except asyncio.TimeoutError:
         logging.error(f"TruffleHog scan timed out after {timeout} seconds")
         state[task_name] = {"completed": False, "output": None, "error": f"Timeout after {timeout}s"}
-        return None
-    except FileNotFoundError as e:
-        logging.error(f"TruffleHog command not found: {e}")
-        state[task_name] = {"completed": False, "output": None, "error": str(e)}
         return None
     except Exception as e:
         logging.error(f"TruffleHog scan failed: {e}")
         state[task_name] = {"completed": False, "output": None, "error": str(e)}
         return None
+

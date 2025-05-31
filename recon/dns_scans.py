@@ -36,10 +36,12 @@ async def dnsrecon_scan(
     output_file = output_dir / "dnsrecon.json"
     cmd = [
         dnsrecon_path, "-d", domain, 
-        "-t", config_data['dnsrecon_scan_types'], 
         "--json", str(output_file),
         "--threads", str(config_data['dnsrecon_threads'])
     ]
+    if config_data['dnsrecon_scan_types']:
+        cmd.extend(["-t", config_data['dnsrecon_scan_types']])
+
     if wordlist_for_subdomains:
         cmd.extend(["-w", str(wordlist_for_subdomains)]) 
 

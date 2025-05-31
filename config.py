@@ -40,7 +40,7 @@ def load_config(config_path: str) -> dict:
             'KATANA_PATH': '/usr/bin/katana',
             'FFUF_PATH': '/usr/bin/ffuf',
             'TRUFFLEHOG_PATH': '/usr/bin/trufflehog',
-            'WORDLIST': '/path/to/wordlists/seclists/Discovery/Web-Content/Common.txt'
+            'WORDLIST': '/usr/share/wordlists/seclists/Discovery/Web-Content/Common.txt'
         },
         'ToolSettings': {
             'sqlmap_level': '2',
@@ -69,7 +69,7 @@ def load_config(config_path: str) -> dict:
             'FfufMatchSize': '100-', 
             'FfufFilterCodes': '404', 
             'TrufflehogMaxDepth': '100',
-            'DnsreconScanTypes': 'std,brt,srv,axfr,goo',
+            'DnsreconScanTypes': '',
             'DnsreconThreads': '10',
             'NaabuPortRange': 'top1000', 
             'NaabuRetries': '2',
